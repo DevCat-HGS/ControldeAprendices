@@ -54,6 +54,149 @@ exports.getCourseAttendance = async (req, res, next) => {
   }
 };
 
+// @desc    Eliminar asistencia
+// @route   DELETE /api/attendance/:id
+// @access  Private (Solo instructores)
+exports.deleteAttendance = async (req, res, next) => {
+  try {
+    // Verificar si el usuario es un instructor
+    if (req.user.role !== 'instructor') {
+      return res.status(403).json({
+        success: false,
+        error: 'Solo los instructores pueden eliminar asistencias'
+      });
+    }
+
+    const attendance = await Attendance.findById(req.params.id);
+
+    if (!attendance) {
+      return res.status(404).json({
+        success: false,
+        error: 'Registro de asistencia no encontrado'
+      });
+    }
+
+    // Verificar si el usuario es el instructor del curso
+    const course = await Course.findById(attendance.course);
+
+    if (course.instructor.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tiene permiso para eliminar asistencias en este curso'
+      });
+    }
+
+    await attendance.deleteOne();
+
+    res.status(200).json({
+      success: true,
+      data: {}
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Error del servidor'
+    });
+  }
+};
+
+// @desc    Obtener una asistencia por ID
+// @route   GET /api/attendance/:id
+// @access  Private
+exports.getAttendanceById = async (req, res, next) => {
+  try {
+    const attendance = await Attendance.findById(req.params.id);
+
+    if (!attendance) {
+      return res.status(404).json({
+        success: false,
+        error: 'Registro de asistencia no encontrado'
+      });
+    }
+
+    // Verificar si el usuario tiene acceso a la asistencia
+    const course = await Course.findById(attendance.course);
+
+    // Si es instructor, verificar que sea el instructor del curso
+    if (
+      req.user.role === 'instructor' &&
+      course.instructor.toString() !== req.user.id
+    ) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tiene permiso para ver esta asistencia'
+      });
+    }
+
+    // Si es aprendiz, verificar que sea su propia asistencia
+    if (
+      req.user.role === 'aprendiz' &&
+      attendance.student.toString() !== req.user.id
+    ) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tiene permiso para ver esta asistencia'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: attendance
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Error del servidor'
+    });
+  }
+};
+
+// @desc    Eliminar asistencia
+// @route   DELETE /api/attendance/:id
+// @access  Private (Solo instructores)
+exports.deleteAttendance = async (req, res, next) => {
+  try {
+    // Verificar si el usuario es un instructor
+    if (req.user.role !== 'instructor') {
+      return res.status(403).json({
+        success: false,
+        error: 'Solo los instructores pueden eliminar asistencias'
+      });
+    }
+
+    const attendance = await Attendance.findById(req.params.id);
+
+    if (!attendance) {
+      return res.status(404).json({
+        success: false,
+        error: 'Registro de asistencia no encontrado'
+      });
+    }
+
+    // Verificar si el usuario es el instructor del curso
+    const course = await Course.findById(attendance.course);
+
+    if (course.instructor.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tiene permiso para eliminar asistencias en este curso'
+      });
+    }
+
+    await attendance.deleteOne();
+
+    res.status(200).json({
+      success: true,
+      data: {}
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Error del servidor'
+    });
+  }
+};
+
 // @desc    Obtener asistencias de un estudiante en un curso
 // @route   GET /api/attendance/course/:courseId/student/:studentId
 // @access  Private
@@ -112,6 +255,149 @@ exports.getStudentAttendance = async (req, res, next) => {
         error: 'Error del servidor'
       });
     }
+  }
+};
+
+// @desc    Eliminar asistencia
+// @route   DELETE /api/attendance/:id
+// @access  Private (Solo instructores)
+exports.deleteAttendance = async (req, res, next) => {
+  try {
+    // Verificar si el usuario es un instructor
+    if (req.user.role !== 'instructor') {
+      return res.status(403).json({
+        success: false,
+        error: 'Solo los instructores pueden eliminar asistencias'
+      });
+    }
+
+    const attendance = await Attendance.findById(req.params.id);
+
+    if (!attendance) {
+      return res.status(404).json({
+        success: false,
+        error: 'Registro de asistencia no encontrado'
+      });
+    }
+
+    // Verificar si el usuario es el instructor del curso
+    const course = await Course.findById(attendance.course);
+
+    if (course.instructor.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tiene permiso para eliminar asistencias en este curso'
+      });
+    }
+
+    await attendance.deleteOne();
+
+    res.status(200).json({
+      success: true,
+      data: {}
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Error del servidor'
+    });
+  }
+};
+
+// @desc    Obtener una asistencia por ID
+// @route   GET /api/attendance/:id
+// @access  Private
+exports.getAttendanceById = async (req, res, next) => {
+  try {
+    const attendance = await Attendance.findById(req.params.id);
+
+    if (!attendance) {
+      return res.status(404).json({
+        success: false,
+        error: 'Registro de asistencia no encontrado'
+      });
+    }
+
+    // Verificar si el usuario tiene acceso a la asistencia
+    const course = await Course.findById(attendance.course);
+
+    // Si es instructor, verificar que sea el instructor del curso
+    if (
+      req.user.role === 'instructor' &&
+      course.instructor.toString() !== req.user.id
+    ) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tiene permiso para ver esta asistencia'
+      });
+    }
+
+    // Si es aprendiz, verificar que sea su propia asistencia
+    if (
+      req.user.role === 'aprendiz' &&
+      attendance.student.toString() !== req.user.id
+    ) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tiene permiso para ver esta asistencia'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: attendance
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Error del servidor'
+    });
+  }
+};
+
+// @desc    Eliminar asistencia
+// @route   DELETE /api/attendance/:id
+// @access  Private (Solo instructores)
+exports.deleteAttendance = async (req, res, next) => {
+  try {
+    // Verificar si el usuario es un instructor
+    if (req.user.role !== 'instructor') {
+      return res.status(403).json({
+        success: false,
+        error: 'Solo los instructores pueden eliminar asistencias'
+      });
+    }
+
+    const attendance = await Attendance.findById(req.params.id);
+
+    if (!attendance) {
+      return res.status(404).json({
+        success: false,
+        error: 'Registro de asistencia no encontrado'
+      });
+    }
+
+    // Verificar si el usuario es el instructor del curso
+    const course = await Course.findById(attendance.course);
+
+    if (course.instructor.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tiene permiso para eliminar asistencias en este curso'
+      });
+    }
+
+    await attendance.deleteOne();
+
+    res.status(200).json({
+      success: true,
+      data: {}
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Error del servidor'
+    });
   }
 };
 
@@ -180,6 +466,149 @@ exports.createAttendance = async (req, res, next) => {
   }
 };
 
+// @desc    Eliminar asistencia
+// @route   DELETE /api/attendance/:id
+// @access  Private (Solo instructores)
+exports.deleteAttendance = async (req, res, next) => {
+  try {
+    // Verificar si el usuario es un instructor
+    if (req.user.role !== 'instructor') {
+      return res.status(403).json({
+        success: false,
+        error: 'Solo los instructores pueden eliminar asistencias'
+      });
+    }
+
+    const attendance = await Attendance.findById(req.params.id);
+
+    if (!attendance) {
+      return res.status(404).json({
+        success: false,
+        error: 'Registro de asistencia no encontrado'
+      });
+    }
+
+    // Verificar si el usuario es el instructor del curso
+    const course = await Course.findById(attendance.course);
+
+    if (course.instructor.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tiene permiso para eliminar asistencias en este curso'
+      });
+    }
+
+    await attendance.deleteOne();
+
+    res.status(200).json({
+      success: true,
+      data: {}
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Error del servidor'
+    });
+  }
+};
+
+// @desc    Obtener una asistencia por ID
+// @route   GET /api/attendance/:id
+// @access  Private
+exports.getAttendanceById = async (req, res, next) => {
+  try {
+    const attendance = await Attendance.findById(req.params.id);
+
+    if (!attendance) {
+      return res.status(404).json({
+        success: false,
+        error: 'Registro de asistencia no encontrado'
+      });
+    }
+
+    // Verificar si el usuario tiene acceso a la asistencia
+    const course = await Course.findById(attendance.course);
+
+    // Si es instructor, verificar que sea el instructor del curso
+    if (
+      req.user.role === 'instructor' &&
+      course.instructor.toString() !== req.user.id
+    ) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tiene permiso para ver esta asistencia'
+      });
+    }
+
+    // Si es aprendiz, verificar que sea su propia asistencia
+    if (
+      req.user.role === 'aprendiz' &&
+      attendance.student.toString() !== req.user.id
+    ) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tiene permiso para ver esta asistencia'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: attendance
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Error del servidor'
+    });
+  }
+};
+
+// @desc    Eliminar asistencia
+// @route   DELETE /api/attendance/:id
+// @access  Private (Solo instructores)
+exports.deleteAttendance = async (req, res, next) => {
+  try {
+    // Verificar si el usuario es un instructor
+    if (req.user.role !== 'instructor') {
+      return res.status(403).json({
+        success: false,
+        error: 'Solo los instructores pueden eliminar asistencias'
+      });
+    }
+
+    const attendance = await Attendance.findById(req.params.id);
+
+    if (!attendance) {
+      return res.status(404).json({
+        success: false,
+        error: 'Registro de asistencia no encontrado'
+      });
+    }
+
+    // Verificar si el usuario es el instructor del curso
+    const course = await Course.findById(attendance.course);
+
+    if (course.instructor.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tiene permiso para eliminar asistencias en este curso'
+      });
+    }
+
+    await attendance.deleteOne();
+
+    res.status(200).json({
+      success: true,
+      data: {}
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Error del servidor'
+    });
+  }
+};
+
 
 
 
@@ -236,5 +665,148 @@ exports.updateAttendance = async (req, res, next) => {
         error: 'Error del servidor'
       });
     }
+  }
+};
+
+// @desc    Eliminar asistencia
+// @route   DELETE /api/attendance/:id
+// @access  Private (Solo instructores)
+exports.deleteAttendance = async (req, res, next) => {
+  try {
+    // Verificar si el usuario es un instructor
+    if (req.user.role !== 'instructor') {
+      return res.status(403).json({
+        success: false,
+        error: 'Solo los instructores pueden eliminar asistencias'
+      });
+    }
+
+    const attendance = await Attendance.findById(req.params.id);
+
+    if (!attendance) {
+      return res.status(404).json({
+        success: false,
+        error: 'Registro de asistencia no encontrado'
+      });
+    }
+
+    // Verificar si el usuario es el instructor del curso
+    const course = await Course.findById(attendance.course);
+
+    if (course.instructor.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tiene permiso para eliminar asistencias en este curso'
+      });
+    }
+
+    await attendance.deleteOne();
+
+    res.status(200).json({
+      success: true,
+      data: {}
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Error del servidor'
+    });
+  }
+};
+
+// @desc    Obtener una asistencia por ID
+// @route   GET /api/attendance/:id
+// @access  Private
+exports.getAttendanceById = async (req, res, next) => {
+  try {
+    const attendance = await Attendance.findById(req.params.id);
+
+    if (!attendance) {
+      return res.status(404).json({
+        success: false,
+        error: 'Registro de asistencia no encontrado'
+      });
+    }
+
+    // Verificar si el usuario tiene acceso a la asistencia
+    const course = await Course.findById(attendance.course);
+
+    // Si es instructor, verificar que sea el instructor del curso
+    if (
+      req.user.role === 'instructor' &&
+      course.instructor.toString() !== req.user.id
+    ) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tiene permiso para ver esta asistencia'
+      });
+    }
+
+    // Si es aprendiz, verificar que sea su propia asistencia
+    if (
+      req.user.role === 'aprendiz' &&
+      attendance.student.toString() !== req.user.id
+    ) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tiene permiso para ver esta asistencia'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: attendance
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Error del servidor'
+    });
+  }
+};
+
+// @desc    Eliminar asistencia
+// @route   DELETE /api/attendance/:id
+// @access  Private (Solo instructores)
+exports.deleteAttendance = async (req, res, next) => {
+  try {
+    // Verificar si el usuario es un instructor
+    if (req.user.role !== 'instructor') {
+      return res.status(403).json({
+        success: false,
+        error: 'Solo los instructores pueden eliminar asistencias'
+      });
+    }
+
+    const attendance = await Attendance.findById(req.params.id);
+
+    if (!attendance) {
+      return res.status(404).json({
+        success: false,
+        error: 'Registro de asistencia no encontrado'
+      });
+    }
+
+    // Verificar si el usuario es el instructor del curso
+    const course = await Course.findById(attendance.course);
+
+    if (course.instructor.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tiene permiso para eliminar asistencias en este curso'
+      });
+    }
+
+    await attendance.deleteOne();
+
+    res.status(200).json({
+      success: true,
+      data: {}
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Error del servidor'
+    });
   }
 };

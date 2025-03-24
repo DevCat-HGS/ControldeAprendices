@@ -26,6 +26,8 @@ router.route('/')
   .post(protect, createAttendance);
 
 router.route('/:id')
-  .put(protect, updateAttendance);
+  .get(protect, getAttendanceById)
+  .put(protect, updateAttendance)
+  .delete(protect, deleteAttendance);
 
 module.exports = router;

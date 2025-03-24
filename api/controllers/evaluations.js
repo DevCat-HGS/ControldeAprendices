@@ -224,6 +224,57 @@ exports.updateEvaluation = async (req, res, next) => {
   }
 };
 
+// @desc    Obtener una evaluación por ID
+// @route   GET /api/evaluations/:id
+// @access  Private
+exports.getEvaluationById = async (req, res, next) => {
+  try {
+    const evaluation = await Evaluation.findById(req.params.id);
+
+    if (!evaluation) {
+      return res.status(404).json({
+        success: false,
+        error: 'Evaluación no encontrada'
+      });
+    }
+
+    // Verificar si el usuario tiene acceso a la evaluación
+    const course = await Course.findById(evaluation.course);
+
+    // Si es instructor, verificar que sea el instructor del curso
+    if (
+      req.user.role === 'instructor' &&
+      course.instructor.toString() !== req.user.id
+    ) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tiene permiso para ver esta evaluación'
+      });
+    }
+
+    // Si es aprendiz, verificar que sea su propia evaluación
+    if (
+      req.user.role === 'aprendiz' &&
+      evaluation.student.toString() !== req.user.id
+    ) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tiene permiso para ver esta evaluación'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: evaluation
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Error del servidor'
+    });
+  }
+};
+
 // @desc    Eliminar una evaluación
 // @route   DELETE /api/evaluations/:id
 // @access  Private (Solo instructores)
