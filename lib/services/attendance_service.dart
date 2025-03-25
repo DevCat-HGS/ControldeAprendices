@@ -122,4 +122,38 @@ class AttendanceService extends ChangeNotifier {
       return false;
     }
   }
+
+  Future<bool> registerAttendance(List<Map<String, dynamic>> attendanceData) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    if (token == null) {
+      return false;
+    }
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/attendance/register'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({
+          'attendanceData': attendanceData,
+        }),
+      );
+
+      _isLoading = false;
+      notifyListeners();
+
+      return response.statusCode == 201;
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
 }

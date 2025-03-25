@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+//import 'package:shared_preferences/shared_preferences.dart';
 import '../services/attendance_service.dart';
 import '../services/course_service.dart';
 
@@ -127,12 +127,10 @@ class _AttendancePageState extends State<AttendancePage> {
                       labelText: 'Seleccionar Curso',
                       border: OutlineInputBorder(),
                     ),
-                    items: _courses.map((course) {
-                      return DropdownMenuItem(
-                        value: course['_id'],
-                        child: Text(course['name']),
-                      );
-                    }).toList(),
+                    items: _courses.map((course) => DropdownMenuItem<String>(
+                      value: course['_id'].toString(),
+                      child: Text(course['name'].toString()),
+                    )).toList(),
                     onChanged: (value) {
                       setState(() {
                         _selectedCourseId = value;

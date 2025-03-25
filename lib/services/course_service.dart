@@ -156,4 +156,40 @@ class CourseService extends ChangeNotifier {
       return [];
     }
   }
+
+  Future<List<Map<String, dynamic>>> getCourseStudents(String courseId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    if (token == null) {
+      return [];
+    }
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/courses/$courseId/students'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      _isLoading = false;
+      notifyListeners();
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return List<Map<String, dynamic>>.from(data);
+      } else {
+        return [];
+      }
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      return [];
+    }
+  }
 }
