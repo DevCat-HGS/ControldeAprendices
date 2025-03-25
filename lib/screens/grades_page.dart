@@ -212,12 +212,12 @@ class _GradesPageState extends State<GradesPage> {
                       border: OutlineInputBorder(),
                     ),
                     items: _courses.map((course) {
-                      return DropdownMenuItem(
-                        value: course['_id'],
-                        child: Text(course['name']),
+                      return DropdownMenuItem<String>(
+                        value: course['_id'] as String,
+                        child: Text(course['name'] as String),
                       );
                     }).toList(),
-                    onChanged: (value) {
+                    onChanged: (String? value) {
                       setState(() {
                         _selectedCourseId = value;
                       });

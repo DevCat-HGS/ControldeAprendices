@@ -82,4 +82,78 @@ class CourseService extends ChangeNotifier {
       return null;
     }
   }
+
+  Future<List<Map<String, dynamic>>> getInstructorCourses() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    final userId = prefs.getString('userId');
+
+    if (token == null || userId == null) {
+      return [];
+    }
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/courses/instructor/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      _isLoading = false;
+      notifyListeners();
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return List<Map<String, dynamic>>.from(data);
+      } else {
+        return [];
+      }
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getStudentCourses() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    final userId = prefs.getString('userId');
+
+    if (token == null || userId == null) {
+      return [];
+    }
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/courses/student/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      _isLoading = false;
+      notifyListeners();
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return List<Map<String, dynamic>>.from(data);
+      } else {
+        return [];
+      }
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      return [];
+    }
+  }
 }
