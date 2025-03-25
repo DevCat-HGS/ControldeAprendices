@@ -1,210 +1,241 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
-import 'package:untitled1/services/grade_service.dart';
-import 'package:untitled1/services/course_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/grade_service.dart';
+import '../services/course_service.dart';
 
 class GradesPage extends StatefulWidget {
-  const GradesPage({super.key});
+  const GradesPage({Key? key}) : super(key: key);
 
   @override
-  State<GradesPage> createState() => _GradesPageState();
+  _GradesPageState createState() => _GradesPageState();
 }
 
 class _GradesPageState extends State<GradesPage> {
-  List<Map<String, dynamic>> _grades = [];
+  final GradeService _gradeService = GradeService();
+  final CourseService _courseService = CourseService();
+  bool _isLoading = false;
   List<Map<String, dynamic>> _courses = [];
-  String _selectedFilter = 'Todos';
-  List<String> _filterOptions = ['Todos'];
-  bool _isLoading = true;
-  
+  List<Map<String, dynamic>> _grades = [];
+  String? _selectedCourseId;
+  String? _userRole;
+  String? _userId;
+
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadUserInfo();
   }
-  
-  Future<void> _loadData() async {
+
+  Future<void> _loadUserInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _userRole = prefs.getString('userRole');
+      _userId = prefs.getString('userId');
+    });
+    _loadCourses();
+  }
+
+  Future<void> _loadCourses() async {
     setState(() {
       _isLoading = true;
     });
-    
-    // Cargar cursos
-    final courseService = Provider.of<CourseService>(context, listen: false);
-    final courses = await courseService.getCourses();
-    
-    // Cargar calificaciones
-    final gradeService = Provider.of<GradeService>(context, listen: false);
-    final grades = await gradeService.getStudentGrades();
-    
-    // Crear opciones de filtro basadas en los cursos disponibles
-    final filterOptions = ['Todos'];
-    for (var course in courses) {
-      filterOptions.add(course['name']);
+
+    try {
+      final courses = _userRole == 'instructor'
+          ? await _courseService.getInstructorCourses()
+          : await _courseService.getStudentCourses();
+      setState(() {
+        _courses = courses;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error al cargar los cursos')),
+      );
     }
-    
+  }
+
+  Future<void> _loadGrades() async {
+    if (_selectedCourseId == null) return;
+
     setState(() {
-      _courses = courses;
-      _grades = grades;
-      _filterOptions = filterOptions;
-      _isLoading = false;
+      _isLoading = true;
     });
-  }
 
-  List<Map<String, dynamic>> get _filteredGrades {
-    if (_selectedFilter == 'Todos') {
-      return _grades;
-    } else {
-      return _grades.where((grade) => 
-        grade['course'] != null && 
-        grade['course']['name'] == _selectedFilter
-      ).toList();
+    try {
+      final grades = _userRole == 'instructor'
+          ? await _gradeService.getCourseGrades(_selectedCourseId!)
+          : await _gradeService.getStudentGrades(_selectedCourseId!, _userId!);
+      setState(() {
+        _grades = grades;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error al cargar las calificaciones')),
+      );
     }
   }
 
-  // Calcular promedio de calificaciones
-  double get _averageScore {
-    if (_filteredGrades.isEmpty) return 0;
-    final total = _filteredGrades.fold<double>(
-        0, (sum, grade) => sum + (grade['score'] / grade['evaluation']['maxScore']) * 100);
-    return total / _filteredGrades.length;
+  Widget _buildGradesList() {
+    if (_grades.isEmpty) {
+      return const Center(
+        child: Text('No hay calificaciones disponibles'),
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _grades.length,
+      itemBuilder: (context, index) {
+        final grade = _grades[index];
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          child: ListTile(
+            title: Text(grade['evaluationTitle'] ?? 'Sin título'),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Calificación: ${grade['score']}/${grade['maxScore']}'),
+                if (grade['feedback'] != null && grade['feedback'].isNotEmpty)
+                  Text('Retroalimentación: ${grade['feedback']}'),
+                Text('Fecha: ${grade['date'].toString().split('T')[0]}'),
+              ],
+            ),
+            trailing: _userRole == 'instructor'
+                ? IconButton(
+                    icon: const Icon(Icons.edit),
+                    onPressed: () => _showEditGradeDialog(grade),
+                  )
+                : null,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showEditGradeDialog(Map<String, dynamic> grade) async {
+    final scoreController = TextEditingController(
+        text: grade['score'].toString());
+    final feedbackController = TextEditingController(
+        text: grade['feedback'] ?? '');
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Editar Calificación'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: scoreController,
+              decoration: InputDecoration(
+                labelText: 'Calificación (máx: ${grade['maxScore']})',
+                border: const OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: feedbackController,
+              decoration: const InputDecoration(
+                labelText: 'Retroalimentación',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await _gradeService.updateGrade(
+                  grade['_id'],
+                  double.parse(scoreController.text),
+                  feedbackController.text,
+                );
+                if (!mounted) return;
+                Navigator.pop(context);
+                _loadGrades();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text('Calificación actualizada correctamente')),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text('Error al actualizar la calificación')),
+                );
+              }
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+
+    scoreController.dispose();
+    feedbackController.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Mis Calificaciones',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                // Filtro por curso
-                DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(
-                    labelText: 'Filtrar por curso',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.filter_list),
-                  ),
-                  value: _selectedFilter,
-                  items: _filterOptions.map((String option) {
-                    return DropdownMenuItem<String>(
-                      value: option,
-                      child: Text(option),
-                    );
-                  }).toList(),
-                  onChanged: (String? newValue) {
-                    if (newValue != null) {
-                      setState(() {
-                        _selectedFilter = newValue;
-                      });
-                    }
-                  },
-                ),
-                const SizedBox(height: 24),
-                // Promedio de calificaciones
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Promedio:',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          '${_averageScore.toStringAsFixed(1)}%',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: _getColorForScore(_averageScore),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Lista de calificaciones
-                Expanded(
-                  child: _filteredGrades.isEmpty
-                      ? const Center(child: Text('No hay calificaciones disponibles'))
-                      : ListView.builder(
-                          itemCount: _filteredGrades.length,
-                          itemBuilder: (context, index) {
-                            final grade = _filteredGrades[index];
-                            
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: _getColorForScore((grade['score'] / grade['evaluation']['maxScore']) * 100),
-                                  child: Text(
-                                    '${(grade['score'] / grade['evaluation']['maxScore'] * 100).round()}',
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                ),
-                                title: Text(grade['evaluation']['name']),
-                                subtitle: Text(
-                                  '${grade['course']['name']} - ${DateFormat('dd/MM/yyyy').format(DateTime.parse(grade['evaluation']['dueDate']))}',
-                                ),
-                                trailing: Text(
-                                  '${grade['score']}/${grade['evaluation']['maxScore']}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                onTap: () {
-                                  // Mostrar detalles de la calificación
-                                  showDialog(
-                                    context: context,
-                                    builder: (ctx) => AlertDialog(
-                                      title: Text(grade['evaluation']['name']),
-                                      content: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text('Descripción: ${grade['evaluation']['description']}'),
-                                          const SizedBox(height: 8),
-                                          Text('Curso: ${grade['course']['name']}'),
-                                          const SizedBox(height: 8),
-                                          Text('Fecha de entrega: ${DateFormat('dd/MM/yyyy').format(DateTime.parse(grade['evaluation']['dueDate']))}'),
-                                          const SizedBox(height: 8),
-                                          Text('Calificación: ${grade['score']}/${grade['evaluation']['maxScore']} (${(grade['score'] / grade['evaluation']['maxScore'] * 100).round()}%)'),
-                                        ],
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.of(ctx).pop(),
-                                          child: const Text('Cerrar'),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                            );
-                          },
-                        ),
-                ),
-        ],
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Calificaciones'),
       ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: _selectedCourseId,
+                    decoration: const InputDecoration(
+                      labelText: 'Seleccionar Curso',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: _courses.map((course) {
+                      return DropdownMenuItem(
+                        value: course['_id'],
+                        child: Text(course['name']),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedCourseId = value;
+                      });
+                      _loadGrades();
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  if (_selectedCourseId != null) ...[                    
+                    const Text(
+                      'Historial de Calificaciones',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildGradesList(),
+                  ],
+                ],
+              ),
+            ),
     );
-  }
-
-  Color _getColorForScore(double score) {
-    if (score >= 90) {
-      return Colors.green;
-    } else if (score >= 80) {
-      return Colors.blue;
-    } else if (score >= 70) {
-      return Colors.orange;
-    } else {
-      return Colors.red;
-    }
   }
 }

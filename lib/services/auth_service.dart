@@ -61,7 +61,7 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  Future<bool> register(String firstName, String lastName, String documentNumber, 
+  Future<Map<String, dynamic>> register(String firstName, String lastName, String documentNumber, 
       String email, String password, String role) async {
     _isLoading = true;
     notifyListeners();
@@ -71,8 +71,9 @@ class AuthService extends ChangeNotifier {
         Uri.parse('$_baseUrl/auth/register'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
-          'name': '$firstName $lastName',
-          'documentType': 'CC', // Valor por defecto ya que no se solicita en el formulario
+          'firstName': firstName,
+          'lastName': lastName,
+          'documentType': 'CC',
           'documentNumber': documentNumber,
           'email': email,
           'password': password,
@@ -83,11 +84,28 @@ class AuthService extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
 
-      return response.statusCode == 200;
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        _token = data['token'];
+        _userId = data['user']['_id'];
+        _userRole = data['user']['role'];
+        _userName = '${data['user']['firstName']} ${data['user']['lastName']}';
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('token', _token!);
+        await prefs.setString('userId', _userId!);
+        await prefs.setString('userRole', _userRole!);
+        await prefs.setString('userName', _userName!);
+
+        return {'success': true, 'user': data['user']};
+      } else {
+        final error = json.decode(response.body);
+        return {'success': false, 'error': error['message'] ?? 'Error al registrar'};
+      }
     } catch (e) {
       _isLoading = false;
       notifyListeners();
-      return false;
+      return {'success': false, 'error': 'Error de conexión'};
     }
   }
 

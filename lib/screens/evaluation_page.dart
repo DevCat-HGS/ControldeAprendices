@@ -1,306 +1,292 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
-import 'package:untitled1/services/auth_service.dart';
-import 'package:untitled1/services/evaluation_service.dart';
-import 'package:untitled1/services/course_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/evaluation_service.dart';
+import '../services/course_service.dart';
 
 class EvaluationPage extends StatefulWidget {
-  const EvaluationPage({super.key});
+  const EvaluationPage({Key? key}) : super(key: key);
 
   @override
-  State<EvaluationPage> createState() => _EvaluationPageState();
+  _EvaluationPageState createState() => _EvaluationPageState();
 }
 
 class _EvaluationPageState extends State<EvaluationPage> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _maxScoreController = TextEditingController();
-  DateTime _dueDate = DateTime.now().add(const Duration(days: 7));
-  List<Map<String, dynamic>> _courses = [];
-  String? _selectedCourse;
-  String? _selectedCourseId;
-
-  // Lista de evaluaciones desde la API
-  List<Map<String, dynamic>> _evaluations = [];
+  final EvaluationService _evaluationService = EvaluationService();
+  final CourseService _courseService = CourseService();
   bool _isLoading = false;
+  List<Map<String, dynamic>> _courses = [];
+  List<Map<String, dynamic>> _evaluations = [];
+  String? _selectedCourseId;
+  String? _userRole;
+  String? _userId;
+
+  final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _scoreController = TextEditingController();
+  final _feedbackController = TextEditingController();
+  DateTime _evaluationDate = DateTime.now();
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadUserInfo();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadUserInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _userRole = prefs.getString('userRole');
+      _userId = prefs.getString('userId');
+    });
+    _loadCourses();
+  }
+
+  Future<void> _loadCourses() async {
     setState(() {
       _isLoading = true;
     });
-    
-    // Cargar cursos
-    final courseService = Provider.of<CourseService>(context, listen: false);
-    final courses = await courseService.getCourses();
-    
-    // Cargar evaluaciones
-    final evaluationService = Provider.of<EvaluationService>(context, listen: false);
-    final evaluations = await evaluationService.getEvaluations();
-    
-    setState(() {
-      _courses = courses;
-      _evaluations = evaluations;
-      _isLoading = false;
-    });
-  }
 
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _descriptionController.dispose();
-    _maxScoreController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _selectDueDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _dueDate,
-      firstDate: DateTime.now(),
-      lastDate: DateTime(2025),
-    );
-    if (picked != null && picked != _dueDate) {
+    try {
+      final courses = _userRole == 'instructor'
+          ? await _courseService.getInstructorCourses()
+          : await _courseService.getStudentCourses();
       setState(() {
-        _dueDate = picked;
+        _courses = courses;
+        _isLoading = false;
       });
-    }
-  }
-
-  Future<void> _createEvaluation() async {
-    if (_formKey.currentState!.validate() && _selectedCourseId != null) {
-      // Crear la evaluación usando el servicio de API
-      setState(() {
-        _isLoading = true;
-      });
-      
-      final evaluationService = Provider.of<EvaluationService>(context, listen: false);
-      final evaluationData = {
-        'name': _nameController.text,
-        'description': _descriptionController.text,
-        'dueDate': _dueDate.toIso8601String(),
-        'maxScore': int.parse(_maxScoreController.text),
-        'courseId': _selectedCourseId,
-      };
-      
-      final success = await evaluationService.createEvaluation(evaluationData);
-      
+    } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      
-      if (success) {
-        // Limpiar el formulario
-        _nameController.clear();
-        _descriptionController.clear();
-        _maxScoreController.clear();
-        setState(() {
-          _selectedCourse = null;
-          _selectedCourseId = null;
-        });
-        
-        // Recargar las evaluaciones
-        _loadData();
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Evaluación creada correctamente')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error al crear la evaluación')),
-        );
-      }
-    } else if (_selectedCourseId == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor selecciona un curso')),
+        const SnackBar(content: Text('Error al cargar los cursos')),
       );
     }
   }
 
-  Widget _buildInstructorView() {
+  Future<void> _loadEvaluations() async {
+    if (_selectedCourseId == null) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final evaluations = await _evaluationService.getCourseEvaluations(_selectedCourseId!);
+      setState(() {
+        _evaluations = evaluations;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error al cargar las evaluaciones')),
+      );
+    }
+  }
+
+  Future<void> _createEvaluation() async {
+    if (_selectedCourseId == null) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _evaluationService.createEvaluation({
+        'course': _selectedCourseId,
+        'title': _titleController.text,
+        'description': _descriptionController.text,
+        'score': double.parse(_scoreController.text),
+        'feedback': _feedbackController.text,
+        'evaluationDate': _evaluationDate.toIso8601String(),
+      });
+
+      _titleController.clear();
+      _descriptionController.clear();
+      _scoreController.clear();
+      _feedbackController.clear();
+
+      await _loadEvaluations();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Evaluación creada correctamente')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error al crear la evaluación')),
+      );
+    }
+
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  Widget _buildEvaluationForm() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'Crear Nueva Evaluación',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        TextFormField(
+          controller: _titleController,
+          decoration: const InputDecoration(
+            labelText: 'Título',
+            border: OutlineInputBorder(),
+          ),
         ),
         const SizedBox(height: 16),
-        Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              // Nombre de la evaluación
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nombre de la evaluación',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Por favor ingresa un nombre';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              // Descripción
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Descripción',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 3,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Por favor ingresa una descripción';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              // Puntaje máximo
-              TextFormField(
-                controller: _maxScoreController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Puntaje máximo',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Por favor ingresa un puntaje máximo';
-                  }
-                  if (int.tryParse(value) == null) {
-                    return 'Ingresa un número válido';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              // Selector de curso
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'Seleccionar Curso',
-                  border: OutlineInputBorder(),
-                ),
-                value: _selectedCourseId,
-                hint: const Text('Selecciona un curso'),
-                items: _courses.map((Map<String, dynamic> course) {
-                  return DropdownMenuItem<String>(
-                    value: course['_id'],
-                    child: Text(course['name']),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
-                  final selectedCourse = _courses.firstWhere(
-                    (course) => course['_id'] == newValue,
-                    orElse: () => {},
-                  );
-                  setState(() {
-                    _selectedCourseId = newValue;
-                    _selectedCourse = selectedCourse['name'];
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-              // Selector de fecha de entrega
-              InkWell(
-                onTap: () => _selectDueDate(context),
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Fecha de entrega',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.calendar_today),
-                  ),
-                  child: Text(
-                    DateFormat('dd/MM/yyyy').format(_dueDate),
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              // Botón para crear evaluación
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _createEvaluation,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text('Crear Evaluación', style: TextStyle(fontSize: 16)),
-                ),
-              ),
-            ],
+        TextFormField(
+          controller: _descriptionController,
+          decoration: const InputDecoration(
+            labelText: 'Descripción',
+            border: OutlineInputBorder(),
+          ),
+          maxLines: 3,
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _scoreController,
+          decoration: const InputDecoration(
+            labelText: 'Puntaje Máximo',
+            border: OutlineInputBorder(),
+          ),
+          keyboardType: TextInputType.number,
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _feedbackController,
+          decoration: const InputDecoration(
+            labelText: 'Retroalimentación',
+            border: OutlineInputBorder(),
+          ),
+          maxLines: 2,
+        ),
+        const SizedBox(height: 16),
+        ListTile(
+          title: const Text('Fecha de Evaluación'),
+          subtitle: Text(
+            '${_evaluationDate.day}/${_evaluationDate.month}/${_evaluationDate.year}',
+          ),
+          trailing: IconButton(
+            icon: const Icon(Icons.calendar_today),
+            onPressed: () async {
+              final DateTime? picked = await showDatePicker(
+                context: context,
+                initialDate: _evaluationDate,
+                firstDate: DateTime.now(),
+                lastDate: DateTime.now().add(const Duration(days: 365)),
+              );
+              if (picked != null && picked != _evaluationDate) {
+                setState(() {
+                  _evaluationDate = picked;
+                });
+              }
+            },
           ),
         ),
         const SizedBox(height: 24),
-        const Text(
-          'Evaluaciones Creadas',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ElevatedButton(
+          onPressed: _createEvaluation,
+          child: const Text('Crear Evaluación'),
         ),
-        const SizedBox(height: 16),
-        _isLoading
+      ],
+    );
+  }
+
+  Widget _buildEvaluationList() {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _evaluations.length,
+      itemBuilder: (context, index) {
+        final evaluation = _evaluations[index];
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          child: ListTile(
+            title: Text(evaluation['title']),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(evaluation['description']),
+                Text('Puntaje: ${evaluation['score']}'),
+                if (evaluation['feedback'] != null)
+                  Text('Retroalimentación: ${evaluation['feedback']}'),
+              ],
+            ),
+            trailing: Text(
+              evaluation['evaluationDate'] != null
+                  ? evaluation['evaluationDate'].toString().split('T')[0]
+                  : '',
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Evaluaciones'),
+      ),
+      body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Expanded(
-              child: _evaluations.isEmpty
-                ? const Center(child: Text('No hay evaluaciones disponibles'))
-                : ListView.builder(
-                    itemCount: _evaluations.length,
-                    itemBuilder: (context, index) {
-                      final evaluation = _evaluations[index];
-                      // Convertir la fecha de string a DateTime
-                      final dueDate = DateTime.parse(evaluation['dueDate']);
-                      // Buscar el nombre del curso por su ID
-                      final course = _courses.firstWhere(
-                        (c) => c['_id'] == evaluation['courseId'],
-                        orElse: () => {'name': 'Curso no encontrado'},
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: _selectedCourseId,
+                    decoration: const InputDecoration(
+                      labelText: 'Seleccionar Curso',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: _courses.map((course) {
+                      return DropdownMenuItem(
+                        value: course['_id'],
+                        child: Text(course['name']),
                       );
-                      
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: ListTile(
-                          title: Text(evaluation['name']),
-                          subtitle: Text(
-                            '${course['name']} - Entrega: ${DateFormat('dd/MM/yyyy').format(dueDate)}',
-                          ),
-                          trailing: Text('${evaluation['maxScore']} pts'),
-                          onTap: () {
-                            // Mostrar detalles de la evaluación
-                            showDialog(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                title: Text(evaluation['name']),
-                                content: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('Descripción: ${evaluation['description']}'),
-                                    const SizedBox(height: 8),
-                                    Text('Curso: ${course['name']}'),
-                                    const SizedBox(height: 8),
-                                    Text('Fecha de entrega: ${DateFormat('dd/MM/yyyy').format(dueDate)}'),
-                                    const SizedBox(height: 8),
-                                    Text('Puntaje máximo: ${evaluation['maxScore']} pts'),
-                                  ],
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.of(ctx).pop(),
-                                    child: const Text('Cerrar'),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedCourseId = value;
+                      });
+                      _loadEvaluations();
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  if (_userRole == 'instructor' && _selectedCourseId != null) ...[                    
+                    _buildEvaluationForm(),
+                    const Divider(height: 32),
+                  ],
+                  if (_selectedCourseId != null) ...[                    
+                    const Text(
+                      'Evaluaciones del Curso',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildEvaluationList(),
+                  ],
+                ],
+              ),
+            ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _scoreController.dispose();
+    _feedbackController.dispose();
+    super.dispose();
+  }
+}
