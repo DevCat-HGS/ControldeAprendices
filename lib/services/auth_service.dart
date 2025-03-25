@@ -71,12 +71,11 @@ class AuthService extends ChangeNotifier {
         Uri.parse('$_baseUrl/auth/register'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
-          'firstName': firstName,
-          'lastName': lastName,
-          'documentType': 'CC',
-          'documentNumber': documentNumber,
+          'name': '$firstName $lastName',
           'email': email,
           'password': password,
+          'documentType': 'CC',
+          'documentNumber': documentNumber,
           'role': role,
         }),
       );
@@ -84,12 +83,13 @@ class AuthService extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        _token = data['token'];
-        _userId = data['user']['_id'];
-        _userRole = data['user']['role'];
-        _userName = '${data['user']['firstName']} ${data['user']['lastName']}';
+      final responseData = json.decode(response.body);
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        _token = responseData['token'];
+        _userId = responseData['user']['_id'];
+        _userRole = responseData['user']['role'];
+        _userName = responseData['user']['name'];
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('token', _token!);
@@ -97,10 +97,11 @@ class AuthService extends ChangeNotifier {
         await prefs.setString('userRole', _userRole!);
         await prefs.setString('userName', _userName!);
 
-        return {'success': true, 'user': data['user']};
+        return {'success': true, 'user': responseData['user']};
       } else {
-        final error = json.decode(response.body);
-        return {'success': false, 'error': error['message'] ?? 'Error al registrar'};
+        final errorMessage = responseData['error'] ?? 
+                           (response.statusCode == 400 ? 'Datos inválidos o usuario ya existe' : 'Error al registrar');
+        return {'success': false, 'error': errorMessage};
       }
     } catch (e) {
       _isLoading = false;

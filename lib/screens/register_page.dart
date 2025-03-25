@@ -37,11 +37,11 @@ class _RegisterPageState extends State<RegisterPage> {
           _selectedRole,
         );
 
+        if (!mounted) return;
+
         if (response['success']) {
-          if (!mounted) return;
-          Navigator.pushReplacementNamed(context, '/home');
+          Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
         } else {
-          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(response['error'] ?? 'Error al registrar el usuario')),
           );
