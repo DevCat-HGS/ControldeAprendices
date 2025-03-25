@@ -90,4 +90,76 @@ class EvaluationService extends ChangeNotifier {
       return false;
     }
   }
+
+  Future<List<Map<String, dynamic>>> getCourseEvaluations(String courseId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    if (token == null) {
+      return [];
+    }
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/evaluations/course/$courseId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      _isLoading = false;
+      notifyListeners();
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return List<Map<String, dynamic>>.from(data);
+      } else {
+        return [];
+      }
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getStudentEvaluations(String courseId, String studentId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    if (token == null) {
+      return [];
+    }
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/evaluations/course/$courseId/student/$studentId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      _isLoading = false;
+      notifyListeners();
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return List<Map<String, dynamic>>.from(data);
+      } else {
+        return [];
+      }
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      return [];
+    }
+  }
 }

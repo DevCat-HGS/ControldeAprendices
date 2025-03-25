@@ -73,7 +73,9 @@ class _EvaluationPageState extends State<EvaluationPage> {
     });
 
     try {
-      final evaluations = await _evaluationService.getCourseEvaluations(_selectedCourseId!);
+      final evaluations = _userRole == 'instructor'
+          ? await _evaluationService.getCourseEvaluations(_selectedCourseId!)
+          : await _evaluationService.getStudentEvaluations(_selectedCourseId!, _userId!);
       setState(() {
         _evaluations = evaluations;
         _isLoading = false;
@@ -104,6 +106,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
         'score': double.parse(_scoreController.text),
         'feedback': _feedbackController.text,
         'evaluationDate': _evaluationDate.toIso8601String(),
+        'userId': _userId,
       });
 
       _titleController.clear();
@@ -249,10 +252,10 @@ class _EvaluationPageState extends State<EvaluationPage> {
                       labelText: 'Seleccionar Curso',
                       border: OutlineInputBorder(),
                     ),
-                    items: _courses.map((course) {
-                      return DropdownMenuItem(
-                        value: course['_id'],
-                        child: Text(course['name']),
+                    items: _courses.map<DropdownMenuItem<String>>((course) {
+                      return DropdownMenuItem<String>(
+                        value: course['_id'] as String,
+                        child: Text(course['name'] as String),
                       );
                     }).toList(),
                     onChanged: (value) {
