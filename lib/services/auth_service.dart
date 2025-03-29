@@ -38,12 +38,12 @@ class AuthService extends ChangeNotifier {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (data['success'] == true) {
-          _token = data['token'];
-          _userId = data['user']['_id'];
-          _userRole = data['user']['role'];
-          _userName = data['user']['name'];
-
+        if (data['success'] == true && data['data'] != null) {
+          final user = data['data'];
+          _token = user['token'];
+          _userId = user['_id'];
+          _userRole = user['role'];
+          _userName = user['name'];
           // Guardar datos en SharedPreferences
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('token', _token!);
