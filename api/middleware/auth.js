@@ -6,11 +6,7 @@ exports.protect = async (req, res, next) => {
   let token;
 
   // Verificar si existe el token en los headers
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith('Bearer')
-  ) {
-    // Obtener token del header
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     token = req.headers.authorization.split(' ')[1];
   }
 
@@ -23,11 +19,18 @@ exports.protect = async (req, res, next) => {
   }
 
   try {
-    // Verificar token
+    // Verificar el token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Agregar usuario al request
+    // Buscar el usuario por id
     req.user = await User.findById(decoded.id);
+
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Usuario no encontrado'
+      });
+    }
 
     next();
   } catch (err) {
@@ -38,13 +41,13 @@ exports.protect = async (req, res, next) => {
   }
 };
 
-// Middleware para autorizar roles
+// Middleware para verificar roles
 exports.authorize = (...roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        error: `El rol ${req.user.role} no está autorizado para acceder a esta ruta`
+        error: 'No tiene permiso para realizar esta acción'
       });
     }
     next();

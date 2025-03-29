@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:untitled1/screens/home_page.dart';
 import 'package:untitled1/screens/register_page.dart';
+import 'package:untitled1/screens/home_page.dart';
 import 'package:untitled1/services/auth_service.dart';
 
 class LoginPage extends StatefulWidget {
@@ -35,8 +35,9 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
 
       if (success) {
+        // Navegar a la página principal
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (ctx) => const HomePage()),
+          MaterialPageRoute(builder: (context) => const HomePage()),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(

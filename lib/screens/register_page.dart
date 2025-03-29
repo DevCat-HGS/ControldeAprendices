@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 //import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
+import 'login_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({Key? key}) : super(key: key);
@@ -40,15 +41,21 @@ class _RegisterPageState extends State<RegisterPage> {
         if (!mounted) return;
 
         if (response['success']) {
-          Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+          // Registro exitoso, redirigir a la página de inicio de sesión
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const LoginPage()),
+            (route) => false,
+          );
         } else {
+          // Mostrar el mensaje de error específico devuelto por el servidor
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(response['error'] ?? 'Error al registrar el usuario')),
           );
         }
       } catch (e) {
+        // Este bloque solo se ejecutará si hay un error inesperado en el código
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error al conectar con el servidor')),
+          SnackBar(content: Text('Error inesperado: ${e.toString()}')),
         );
       }
 

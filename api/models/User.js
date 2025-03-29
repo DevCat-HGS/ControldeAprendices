@@ -1,39 +1,30 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 
 const UserSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: [true, 'Por favor ingrese su nombre'],
-    trim: true,
-    maxlength: [50, 'El nombre no puede tener más de 50 caracteres']
+    required: [true, 'El nombre es obligatorio']
   },
-  email: {
+  lastName: {
     type: String,
-    required: [true, 'Por favor ingrese un email'],
-    unique: true,
-    match: [
-      /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
-      'Por favor ingrese un email válido'
-    ]
-  },
-  password: {
-    type: String,
-    required: [true, 'Por favor ingrese una contraseña'],
-    minlength: [6, 'La contraseña debe tener al menos 6 caracteres'],
-    select: false
-  },
-  documentType: {
-    type: String,
-    required: [true, 'Por favor ingrese el tipo de documento'],
-    enum: ['CC', 'TI', 'CE', 'Pasaporte']
+    required: [true, 'El apellido es obligatorio']
   },
   documentNumber: {
     type: String,
-    required: [true, 'Por favor ingrese el número de documento'],
+    required: [true, 'El número de documento es obligatorio'],
+    unique: true
+  },
+  email: {
+    type: String,
+    required: [true, 'El correo es obligatorio'],
     unique: true,
-    trim: true
+    match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Por favor ingrese un correo válido']
+  },
+  password: {
+    type: String,
+    required: [true, 'La contraseña es obligatoria'],
+    minlength: [6, 'La contraseña debe tener al menos 6 caracteres']
   },
   role: {
     type: String,
@@ -46,24 +37,17 @@ const UserSchema = new mongoose.Schema({
   }
 });
 
-// Encriptar contraseña usando bcrypt
+// Encriptar contraseña antes de guardar
 UserSchema.pre('save', async function(next) {
   if (!this.isModified('password')) {
     next();
   }
-
+  
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
 });
 
-// Firmar JWT y retornar
-UserSchema.methods.getSignedJwtToken = function() {
-  return jwt.sign({ id: this._id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE
-  });
-};
-
-// Verificar si las contraseñas coinciden
+// Método para comparar contraseñas
 UserSchema.methods.matchPassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };

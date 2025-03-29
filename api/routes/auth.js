@@ -1,16 +1,22 @@
 const express = require('express');
-const { register, login, getMe } = require('../controllers/auth');
-
 const router = express.Router();
-
-// Middleware de autenticación
-const { protect } = require('../middleware/auth');
+const { register, login, getProfile, updateProfile } = require('../controllers/authController');
+const { protect, authorize } = require('../middleware/auth');
 
 // Rutas públicas
 router.post('/register', register);
 router.post('/login', login);
 
-// Rutas privadas
-router.get('/me', protect, getMe);
+// Rutas protegidas
+router.get('/profile', protect, getProfile);
+router.put('/profile', protect, updateProfile);
+
+// Ruta protegida solo para instructores
+router.get('/instructors-only', protect, authorize('instructor'), (req, res) => {
+  res.json({
+    success: true,
+    data: 'Esta ruta solo es accesible para instructores'
+  });
+});
 
 module.exports = router;

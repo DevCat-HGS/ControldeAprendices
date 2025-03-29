@@ -38,26 +38,30 @@ class AuthService extends ChangeNotifier {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        _token = data['token'];
-        _userId = data['user']['_id'];
-        _userRole = data['user']['role'];
-        _userName = '${data['user']['firstName']} ${data['user']['lastName']}';
+        if (data['success'] == true) {
+          _token = data['token'];
+          _userId = data['user']['_id'];
+          _userRole = data['user']['role'];
+          _userName = data['user']['name'];
 
-        // Guardar datos en SharedPreferences
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('token', _token!);
-        await prefs.setString('userId', _userId!);
-        await prefs.setString('userRole', _userRole!);
-        await prefs.setString('userName', _userName!);
+          // Guardar datos en SharedPreferences
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('token', _token!);
+          await prefs.setString('userId', _userId!);
+          await prefs.setString('userRole', _userRole!);
+          await prefs.setString('userName', _userName!);
 
-        return true;
-      } else {
+          return true;
+        }
         return false;
+      } else {
+        final errorData = json.decode(response.body);
+        throw Exception(errorData['error'] ?? 'Error al iniciar sesión');
       }
     } catch (e) {
       _isLoading = false;
       notifyListeners();
-      return false;
+      throw Exception(e.toString().contains('Exception:') ? e.toString().split('Exception: ')[1] : 'Error de conexión');
     }
   }
 
@@ -99,6 +103,7 @@ class AuthService extends ChangeNotifier {
 
         return {'success': true, 'user': responseData['user']};
       } else {
+        // Si el servidor responde con un código de error, extraemos el mensaje de error
         final errorMessage = responseData['error'] ?? 
                            (response.statusCode == 400 ? 'Datos inválidos o usuario ya existe' : 'Error al registrar');
         return {'success': false, 'error': errorMessage};
@@ -106,7 +111,8 @@ class AuthService extends ChangeNotifier {
     } catch (e) {
       _isLoading = false;
       notifyListeners();
-      return {'success': false, 'error': 'Error de conexión'};
+      // Solo devolvemos error de conexión si realmente es un error de red
+      return {'success': false, 'error': e.toString().contains('Exception:') ? e.toString().split('Exception: ')[1] : 'Error de conexión al servidor'};
     }
   }
 
