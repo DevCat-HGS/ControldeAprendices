@@ -75,10 +75,10 @@ class AuthService extends ChangeNotifier {
         Uri.parse('$_baseUrl/auth/register'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
-          'name': '$firstName $lastName',
+          'name': firstName,
+          'lastName': lastName,
           'email': email,
           'password': password,
-          'documentType': 'CC',
           'documentNumber': documentNumber,
           'role': role,
         }),
@@ -89,11 +89,15 @@ class AuthService extends ChangeNotifier {
 
       final responseData = json.decode(response.body);
 
-      if (response.statusCode == 200 && responseData['success'] == true) {
-        _token = responseData['token'];
-        _userId = responseData['user']['_id'];
-        _userRole = responseData['user']['role'];
-        _userName = responseData['user']['name'];
+      if ((response.statusCode == 200 || response.statusCode == 201) && responseData['success'] == true) {
+        final user = responseData['data'];
+        if (user == null || user['_id'] == null) {
+          return {'success': false, 'error': 'Datos de usuario incompletos en la respuesta del servidor'};
+        }
+        _token = user['token'];
+        _userId = user['_id'];
+        _userRole = user['role'];
+        _userName = user['name'];
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('token', _token!);
@@ -111,8 +115,27 @@ class AuthService extends ChangeNotifier {
     } catch (e) {
       _isLoading = false;
       notifyListeners();
-      // Solo devolvemos error de conexión si realmente es un error de red
-      return {'success': false, 'error': e.toString().contains('Exception:') ? e.toString().split('Exception: ')[1] : 'Error de conexión al servidor'};
+      
+      // Identificar el tipo de error para dar un mensaje más preciso
+      String errorMessage;
+      if (e is http.ClientException) {
+        // Error específico de cliente HTTP (problemas de conexión)
+        errorMessage = 'No se pudo conectar al servidor. Verifique su conexión a internet.';
+      } else if (e.toString().contains('SocketException') || e.toString().contains('Connection refused')) {
+        // Error de socket o conexión rechazada
+        errorMessage = 'No se pudo establecer conexión con el servidor. Verifique que el servidor esté en ejecución.';
+      } else if (e.toString().contains('timeout')) {
+        // Error de tiempo de espera
+        errorMessage = 'La conexión al servidor ha excedido el tiempo de espera. Intente nuevamente.';
+      } else if (e.toString().contains('Exception:')) {
+        // Extraer mensaje de excepción personalizado
+        errorMessage = e.toString().split('Exception: ')[1];
+      } else {
+        // Otro tipo de error
+        errorMessage = 'Error inesperado: ${e.toString()}';
+      }
+      
+      return {'success': false, 'error': errorMessage};
     }
   }
 
