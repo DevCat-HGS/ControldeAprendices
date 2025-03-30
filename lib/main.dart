@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:untitled1/screens/login_page.dart';
 import 'package:untitled1/services/auth_service.dart';
+import 'package:untitled1/services/course_service.dart';
 
 void main() {
   runApp(const MyApp());
@@ -15,6 +16,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
+        ChangeNotifierProvider(create: (_) => CourseService()),
       ],
       child: MaterialApp(
         title: 'SENA App',
