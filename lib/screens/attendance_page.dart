@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import '../services/auth_service.dart';
+import '../services/course_service.dart';
+import '../services/attendance_service.dart';
 
 class AttendancePage extends StatefulWidget {
   const AttendancePage({Key? key}) : super(key: key);
@@ -13,7 +14,6 @@ class AttendancePage extends StatefulWidget {
 }
 
 class _AttendancePageState extends State<AttendancePage> {
-  final String _baseUrl = 'http://localhost:3000/api';
   bool _isLoading = true;
   List<dynamic> _courses = [];
   List<dynamic> _students = [];
@@ -35,19 +35,12 @@ class _AttendancePageState extends State<AttendancePage> {
     });
 
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      final response = await http.get(
-        Uri.parse('$_baseUrl/courses'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${authService.token}',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+      final courseService = Provider.of<CourseService>(context, listen: false);
+      final success = await courseService.getCourses();
+      
+      if (success) {
         setState(() {
-          _courses = data['data'];
+          _courses = courseService.courses;
           _isLoading = false;
         });
       } else {
@@ -69,19 +62,12 @@ class _AttendancePageState extends State<AttendancePage> {
     });
 
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      final response = await http.get(
-        Uri.parse('$_baseUrl/courses/$courseId'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${authService.token}',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+      final courseService = Provider.of<CourseService>(context, listen: false);
+      final course = await courseService.getCourse(courseId);
+      
+      if (course != null) {
         setState(() {
-          _students = data['data']['students'];
+          _students = course['students'];
           _attendanceStatus = {};
           // Inicializar el estado de asistencia para cada estudiante
           for (var student in _students) {
@@ -115,7 +101,7 @@ class _AttendancePageState extends State<AttendancePage> {
     });
 
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
+      final attendanceService = Provider.of<AttendanceService>(context, listen: false);
       
       // Preparar los registros de asistencia
       List<Map<String, dynamic>> records = [];
@@ -126,32 +112,26 @@ class _AttendancePageState extends State<AttendancePage> {
         });
       });
 
-      final response = await http.post(
-        Uri.parse('$_baseUrl/attendance'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${authService.token}',
-        },
-        body: json.encode({
-          'course': _selectedCourse['_id'],
-          'date': _selectedDate.toIso8601String(),
-          'records': records,
-        }),
-      );
+      final attendanceData = {
+        'course': _selectedCourse['_id'],
+        'date': _selectedDate.toIso8601String(),
+        'records': records,
+      };
+      
+      final success = await attendanceService.createAttendance(attendanceData);
 
       setState(() {
         _isLoading = false;
       });
 
-      if (response.statusCode == 201) {
+      if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Asistencia registrada correctamente')),
         );
         // Recargar los estudiantes para actualizar la vista
         _loadStudents(_selectedCourse['_id']);
       } else {
-        final errorData = json.decode(response.body);
-        throw Exception(errorData['error'] ?? 'Error al registrar la asistencia');
+        throw Exception('Error al registrar la asistencia');
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -166,24 +146,25 @@ class _AttendancePageState extends State<AttendancePage> {
     });
 
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      String url = '$_baseUrl/attendance?course=$courseId';
+      final attendanceService = Provider.of<AttendanceService>(context, listen: false);
+      List<dynamic>? attendances;
+      
       if (studentId != null) {
-        url += '&student=$studentId';
+        // Si se proporciona un ID de estudiante, filtramos en el frontend
+        // ya que el servicio no tiene un método específico para esto
+        final allAttendances = await attendanceService.getAttendancesByCourse(courseId);
+        if (allAttendances != null) {
+          attendances = allAttendances.where((attendance) => 
+            attendance['records'].any((record) => record['student'] == studentId)
+          ).toList();
+        }
+      } else {
+        attendances = await attendanceService.getAttendancesByCourse(courseId);
       }
       
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${authService.token}',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+      if (attendances != null) {
         setState(() {
-          _attendanceHistory = data['data'];
+          _attendanceHistory = attendances!;
           _isLoading = false;
         });
       } else {

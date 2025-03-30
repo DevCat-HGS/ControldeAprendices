@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import '../services/auth_service.dart';
+import '../services/course_service.dart';
+import '../services/evaluation_service.dart';
 
 class EvaluationPage extends StatefulWidget {
   const EvaluationPage({Key? key}) : super(key: key);
@@ -13,7 +14,6 @@ class EvaluationPage extends StatefulWidget {
 }
 
 class _EvaluationPageState extends State<EvaluationPage> {
-  final String _baseUrl = 'http://localhost:3000/api';
   bool _isLoading = true;
   List<dynamic> _courses = [];
   List<dynamic> _evaluations = [];
@@ -58,19 +58,12 @@ class _EvaluationPageState extends State<EvaluationPage> {
     });
 
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      final response = await http.get(
-        Uri.parse('$_baseUrl/courses'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${authService.token}',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+      final courseService = Provider.of<CourseService>(context, listen: false);
+      final success = await courseService.getCourses();
+      
+      if (success) {
         setState(() {
-          _courses = data['data'];
+          _courses = courseService.courses;
           _isLoading = false;
         });
       } else {
@@ -92,19 +85,12 @@ class _EvaluationPageState extends State<EvaluationPage> {
     });
 
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      final response = await http.get(
-        Uri.parse('$_baseUrl/evaluations?course=$courseId'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${authService.token}',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+      final evaluationService = Provider.of<EvaluationService>(context, listen: false);
+      final evaluations = await evaluationService.getEvaluationsByCourse(courseId);
+      
+      if (evaluations != null) {
         setState(() {
-          _evaluations = data['data'];
+          _evaluations = evaluations;
           _isLoading = false;
         });
       } else {
@@ -143,28 +129,23 @@ class _EvaluationPageState extends State<EvaluationPage> {
     });
 
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
+      final evaluationService = Provider.of<EvaluationService>(context, listen: false);
       
-      final response = await http.post(
-        Uri.parse('$_baseUrl/evaluations'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${authService.token}',
-        },
-        body: json.encode({
-          'name': _nameController.text,
-          'course': _selectedCourse['_id'],
-          'description': _descriptionController.text,
-          'maxScore': int.parse(_maxScoreController.text),
-          'dueDate': _dueDate.toIso8601String(),
-        }),
-      );
+      final evaluationData = {
+        'name': _nameController.text,
+        'course': _selectedCourse['_id'],
+        'description': _descriptionController.text,
+        'maxScore': int.parse(_maxScoreController.text),
+        'dueDate': _dueDate.toIso8601String(),
+      };
+      
+      final success = await evaluationService.createEvaluation(evaluationData);
 
       setState(() {
         _isLoading = false;
       });
 
-      if (response.statusCode == 201) {
+      if (success) {
         // Limpiar el formulario
         _nameController.clear();
         _descriptionController.clear();
@@ -178,8 +159,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
         // Recargar las evaluaciones
         _loadEvaluations(_selectedCourse['_id']);
       } else {
-        final errorData = json.decode(response.body);
-        throw Exception(errorData['error'] ?? 'Error al crear la evaluación');
+        throw Exception('Error al crear la evaluación');
       }
     } catch (e) {
       setState(() {
@@ -204,24 +184,19 @@ class _EvaluationPageState extends State<EvaluationPage> {
     });
 
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
+      final evaluationService = Provider.of<EvaluationService>(context, listen: false);
       
-      final response = await http.post(
-        Uri.parse('$_baseUrl/evaluations/$evaluationId/submit'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${authService.token}',
-        },
-        body: json.encode({
-          'evidence': _evidenceController.text,
-        }),
-      );
+      final evidenceData = {
+        'evidence': _evidenceController.text,
+      };
+      
+      final success = await evaluationService.submitEvidence(evaluationId, evidenceData);
 
       setState(() {
         _isLoading = false;
       });
 
-      if (response.statusCode == 200) {
+      if (success) {
         _evidenceController.clear();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Evidencia enviada correctamente')),
@@ -229,8 +204,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
         // Recargar las evaluaciones
         _loadEvaluations(_selectedCourse['_id']);
       } else {
-        final errorData = json.decode(response.body);
-        throw Exception(errorData['error'] ?? 'Error al enviar la evidencia');
+        throw Exception('Error al enviar la evidencia');
       }
     } catch (e) {
       setState(() {
