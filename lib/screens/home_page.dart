@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import 'attendance_page.dart';
+import 'evaluation_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -83,7 +85,10 @@ class _HomePageState extends State<HomePage> {
                 title: const Text('Registrar Asistencia'),
                 onTap: () {
                   Navigator.pop(context);
-                  // Navegar a la página de asistencia
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AttendancePage()),
+                  );
                 },
               ),
               ListTile(
@@ -91,12 +96,26 @@ class _HomePageState extends State<HomePage> {
                 title: const Text('Evaluaciones'),
                 onTap: () {
                   Navigator.pop(context);
-                  // Navegar a la página de evaluaciones
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const EvaluationPage()),
+                  );
                 },
               ),
             ]
             else ...
             [
+              ListTile(
+                leading: const Icon(Icons.grading),
+                title: const Text('Evaluaciones'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const EvaluationPage()),
+                  );
+                },
+              ),
               ListTile(
                 leading: const Icon(Icons.assignment_turned_in),
                 title: const Text('Mis Evaluaciones'),
