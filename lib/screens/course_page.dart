@@ -15,6 +15,8 @@ class _CoursePageState extends State<CoursePage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _codeController = TextEditingController();
+  DateTime? _startDate;
+  DateTime? _endDate;
   
   String? _selectedCourseId;
   bool _isEditing = false;
@@ -59,33 +61,42 @@ class _CoursePageState extends State<CoursePage> {
 
   Future<void> _saveCourse() async {
     if (_formKey.currentState!.validate()) {
+      if (_startDate == null || _endDate == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Por favor seleccione las fechas de inicio y fin')),
+        );
+        return;
+      }
+
       final courseData = {
         'name': _nameController.text,
         'description': _descriptionController.text,
         'code': _codeController.text,
+        'startDate': _startDate!.toIso8601String(),
+        'endDate': _endDate!.toIso8601String(),
       };
 
       final courseService = Provider.of<CourseService>(context, listen: false);
-      bool success;
+      Map<String, dynamic> result;
 
       if (_isEditing && _selectedCourseId != null) {
         // Actualizar curso existente
-        success = await courseService.updateCourse(_selectedCourseId!, courseData);
+        result = await courseService.updateCourse(_selectedCourseId!, courseData);
       } else {
         // Crear nuevo curso
-        success = await courseService.createCourse(courseData);
+        result = await courseService.createCourse(courseData);
       }
 
       if (!mounted) return;
 
-      if (success) {
+      if (result['success']) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_isEditing ? 'Curso actualizado con éxito' : 'Curso creado con éxito')),
+          SnackBar(content: Text(result['message'] ?? (_isEditing ? 'Curso actualizado con éxito' : 'Curso creado con éxito'))),
         );
         _resetForm();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error al guardar el curso')),
+          SnackBar(content: Text(result['message'] ?? 'Error al guardar el curso')),
         );
       }
     }
@@ -93,20 +104,20 @@ class _CoursePageState extends State<CoursePage> {
 
   Future<void> _deleteCourse(String courseId) async {
     final courseService = Provider.of<CourseService>(context, listen: false);
-    final success = await courseService.deleteCourse(courseId);
+    final result = await courseService.deleteCourse(courseId);
 
     if (!mounted) return;
 
-    if (success) {
+    if (result['success']) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Curso eliminado con éxito')),
+        SnackBar(content: Text(result['message'] ?? 'Curso eliminado con éxito')),
       );
       if (_selectedCourseId == courseId) {
         _resetForm();
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error al eliminar el curso')),
+        SnackBar(content: Text(result['message'] ?? 'Error al eliminar el curso')),
       );
     }
   }
@@ -178,6 +189,57 @@ class _CoursePageState extends State<CoursePage> {
                                 }
                                 return null;
                               },
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ListTile(
+                                    title: const Text('Fecha de inicio'),
+                                    subtitle: Text(_startDate == null
+                                        ? 'No seleccionada'
+                                        : '${_startDate!.day}/${_startDate!.month}/${_startDate!.year}'),
+                                    onTap: () async {
+                                      final picked = await showDatePicker(
+                                        context: context,
+                                        initialDate: _startDate ?? DateTime.now(),
+                                        firstDate: DateTime.now(),
+                                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                                      );
+                                      if (picked != null) {
+                                        setState(() => _startDate = picked);
+                                      }
+                                    },
+                                  ),
+                                ),
+                                Expanded(
+                                  child: ListTile(
+                                    title: const Text('Fecha de fin'),
+                                    subtitle: Text(_endDate == null
+                                        ? 'No seleccionada'
+                                        : '${_endDate!.day}/${_endDate!.month}/${_endDate!.year}'),
+                                    onTap: () async {
+                                      if (_startDate == null) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Primero seleccione la fecha de inicio'),
+                                          ),
+                                        );
+                                        return;
+                                      }
+                                      final picked = await showDatePicker(
+                                        context: context,
+                                        initialDate: _endDate ?? _startDate!.add(const Duration(days: 1)),
+                                        firstDate: _startDate!,
+                                        lastDate: _startDate!.add(const Duration(days: 365)),
+                                      );
+                                      if (picked != null) {
+                                        setState(() => _endDate = picked);
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 16),
                             Row(

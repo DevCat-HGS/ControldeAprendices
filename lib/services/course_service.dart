@@ -96,7 +96,7 @@ class CourseService extends ChangeNotifier {
   }
 
   // Crear un nuevo curso (solo para instructores)
-  Future<bool> createCourse(Map<String, dynamic> courseData) async {
+  Future<Map<String, dynamic>> createCourse(Map<String, dynamic> courseData) async {
     _isLoading = true;
     notifyListeners();
 
@@ -105,7 +105,7 @@ class CourseService extends ChangeNotifier {
       if (token == null) {
         _isLoading = false;
         notifyListeners();
-        return false;
+        return {'success': false, 'message': 'No se encontró el token de autenticación'};
       }
 
       final response = await http.post(
@@ -120,20 +120,22 @@ class CourseService extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
 
+      final data = json.decode(response.body);
+      
       if (response.statusCode == 201) {
         await getCourses(); // Actualizar la lista de cursos
-        return true;
+        return {'success': true, 'message': 'Curso creado exitosamente'};
       }
-      return false;
+      return {'success': false, 'message': data['message'] ?? 'Error al crear el curso'};
     } catch (e) {
       _isLoading = false;
       notifyListeners();
-      return false;
+      return {'success': false, 'message': 'Error inesperado al crear el curso'};
     }
   }
 
   // Actualizar un curso existente (solo para instructores)
-  Future<bool> updateCourse(String courseId, Map<String, dynamic> courseData) async {
+  Future<Map<String, dynamic>> updateCourse(String courseId, Map<String, dynamic> courseData) async {
     _isLoading = true;
     notifyListeners();
 
@@ -142,7 +144,7 @@ class CourseService extends ChangeNotifier {
       if (token == null) {
         _isLoading = false;
         notifyListeners();
-        return false;
+        return {'success': false, 'message': 'No se encontró el token de autenticación'};
       }
 
       final response = await http.put(
@@ -157,20 +159,22 @@ class CourseService extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
 
+      final data = json.decode(response.body);
+
       if (response.statusCode == 200) {
         await getCourses(); // Actualizar la lista de cursos
-        return true;
+        return {'success': true, 'message': 'Curso actualizado exitosamente'};
       }
-      return false;
+      return {'success': false, 'message': data['message'] ?? 'Error al actualizar el curso'};
     } catch (e) {
       _isLoading = false;
       notifyListeners();
-      return false;
+      return {'success': false, 'message': 'Error inesperado al actualizar el curso'};
     }
   }
 
   // Eliminar un curso (solo para instructores)
-  Future<bool> deleteCourse(String courseId) async {
+  Future<Map<String, dynamic>> deleteCourse(String courseId) async {
     _isLoading = true;
     notifyListeners();
 
@@ -179,7 +183,7 @@ class CourseService extends ChangeNotifier {
       if (token == null) {
         _isLoading = false;
         notifyListeners();
-        return false;
+        return {'success': false, 'message': 'No se encontró el token de autenticación'};
       }
 
       final response = await http.delete(
@@ -193,15 +197,17 @@ class CourseService extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
 
+      final data = json.decode(response.body);
+
       if (response.statusCode == 200) {
         await getCourses(); // Actualizar la lista de cursos
-        return true;
+        return {'success': true, 'message': 'Curso eliminado exitosamente'};
       }
-      return false;
+      return {'success': false, 'message': data['message'] ?? 'Error al eliminar el curso'};
     } catch (e) {
       _isLoading = false;
       notifyListeners();
-      return false;
+      return {'success': false, 'message': 'Error inesperado al eliminar el curso'};
     }
   }
 
