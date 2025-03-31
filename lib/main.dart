@@ -6,6 +6,7 @@ import 'package:untitled1/services/course_service.dart';
 import 'package:untitled1/services/profile_service.dart';
 import 'package:untitled1/services/grades_service.dart';
 import 'package:untitled1/services/evaluation_service.dart';
+import 'package:untitled1/services/attendance_service.dart';
 
 void main() {
   runApp(const MyApp());
@@ -23,6 +24,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ProfileService()),
         ChangeNotifierProvider(create: (_) => GradesService()),
         ChangeNotifierProvider(create: (_) => EvaluationService()),
+        ChangeNotifierProvider(create: (_) => AttendanceService()),
       ],
       child: MaterialApp(
         title: 'SENA App',
