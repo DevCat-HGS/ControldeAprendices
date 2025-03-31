@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/course_service.dart';
-import '../services/auth_service.dart';
+//import '../services/auth_service.dart';
 
 class AvailableCoursesPage extends StatefulWidget {
   const AvailableCoursesPage({Key? key}) : super(key: key);
