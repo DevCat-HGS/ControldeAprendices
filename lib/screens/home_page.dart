@@ -7,6 +7,7 @@ import 'evaluation_page.dart';
 import 'course_page.dart';
 import 'profile_page.dart';
 import 'grades_page.dart';
+import 'available_courses_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -128,6 +129,28 @@ class _HomePageState extends State<HomePage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => const EvaluationPage()),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.school),
+                title: const Text('Mis Cursos'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const CoursePage()),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.add_circle),
+                title: const Text('Cursos Disponibles'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AvailableCoursesPage()),
                   );
                 },
               ),
