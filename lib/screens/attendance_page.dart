@@ -402,8 +402,11 @@ class _AttendancePageState extends State<AttendancePage> {
                                     .where((record) => record['present'] == true)
                                     .map<Widget>((record) {
                                   final student = _students.firstWhere(
-                                    (s) => s['_id'] == record['student'],
-                                    orElse: () => {'name': 'Desconocido', 'lastName': ''},
+                                    (s) => s['_id'] == record['student']['_id'] || s['_id'] == record['student'],
+                                    orElse: () => {
+                                      'name': record['student']['name'] ?? 'Desconocido',
+                                      'lastName': record['student']['lastName'] ?? ''
+                                    },
                                   );
                                   return Padding(
                                     padding: const EdgeInsets.only(left: 16.0),
