@@ -15,6 +15,7 @@ class _GradesPageState extends State<GradesPage> {
   String? _selectedCourseId;
   final _gradeController = TextEditingController();
   final _commentController = TextEditingController();
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -32,22 +33,52 @@ class _GradesPageState extends State<GradesPage> {
   }
 
   Future<void> _loadInitialData() async {
-    final courseService = Provider.of<CourseService>(context, listen: false);
-    await courseService.getCourses();
+    try {
+      setState(() => _isLoading = true);
+      final courseService = Provider.of<CourseService>(context, listen: false);
+      await courseService.getCourses();
 
-    if (courseService.courses.isNotEmpty) {
-      setState(() {
+      if (courseService.courses.isNotEmpty) {
         _selectedCourseId = courseService.courses[0]['_id'];
-      });
-      _loadGrades();
+        await _loadGrades();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error al cargar los datos iniciales'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   Future<void> _loadGrades() async {
     if (_selectedCourseId == null) return;
 
-    final gradesService = Provider.of<GradesService>(context, listen: false);
-    await gradesService.getCourseGrades(_selectedCourseId!);
+    try {
+      setState(() => _isLoading = true);
+      final gradesService = Provider.of<GradesService>(context, listen: false);
+      await gradesService.getCourseGrades(_selectedCourseId!);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error al cargar las calificaciones'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   void _showEditGradeDialog(Map<String, dynamic> grade) {
@@ -56,7 +87,8 @@ class _GradesPageState extends State<GradesPage> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) => AlertDialog(
         title: const Text('Editar Calificación'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -80,26 +112,54 @@ class _GradesPageState extends State<GradesPage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancelar'),
           ),
           TextButton(
             onPressed: () async {
-              final gradesService = Provider.of<GradesService>(context, listen: false);
-              final result = await gradesService.updateGrade(
-                grade['_id'],
-                {
-                  'score': double.tryParse(_gradeController.text) ?? 0.0,
-                  'comments': _commentController.text,
-                },
-              );
+              try {
+                if (_gradeController.text.isEmpty) {
+                  throw Exception('La calificación no puede estar vacía');
+                }
 
-              if (!mounted) return;
+                final score = double.tryParse(_gradeController.text);
+                if (score == null || score < 0 || score > 100) {
+                  throw Exception('La calificación debe ser un número válido entre 0 y 100');
+                }
 
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(result['message'])),
-              );
+                setState(() => _isLoading = true);
+                final gradesService = Provider.of<GradesService>(context, listen: false);
+                final result = await gradesService.updateGrade(
+                  grade['_id'],
+                  {
+                    'score': score,
+                    'comments': _commentController.text.trim(),
+                  },
+                );
+
+                if (!mounted) return;
+
+                Navigator.pop(dialogContext);
+                await _loadGrades();
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(result['success'] ? 'Calificación actualizada correctamente' : result['message']),
+                    backgroundColor: result['success'] ? Colors.green : Colors.red,
+                  ),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  SnackBar(
+                    content: Text(e.toString()),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              } finally {
+                if (mounted) {
+                  setState(() => _isLoading = false);
+                }
+              }
             },
             child: const Text('Guardar'),
           ),
@@ -119,9 +179,11 @@ class _GradesPageState extends State<GradesPage> {
       appBar: AppBar(
         title: const Text('Historial de Calificaciones'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Selector de curso
@@ -152,9 +214,7 @@ class _GradesPageState extends State<GradesPage> {
             ),
             const SizedBox(height: 16),
             Expanded(
-              child: gradesService.isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : gradesService.grades.isEmpty
+              child: gradesService.grades.isEmpty
                       ? const Center(child: Text('No hay calificaciones disponibles'))
                       : ListView.builder(
                           itemCount: gradesService.grades.length,

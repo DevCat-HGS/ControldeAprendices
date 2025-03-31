@@ -315,7 +315,63 @@ class EvaluationService extends ChangeNotifier {
     }
   }
 
-  // Subir evidencia para una evaluación (para estudiantes)
+  // Subir evidencia para una evaluación (para aprendices)
+  Future<Map<String, dynamic>> uploadEvidence(String evaluationId, String filePath) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        _isLoading = false;
+        notifyListeners();
+        return {'success': false, 'message': 'No se encontró el token de autenticación'};
+      }
+
+      // Crear un request multipart
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$_baseUrl/evaluations/$evaluationId/evidence')
+      );
+
+      // Agregar el archivo
+      request.files.add(await http.MultipartFile.fromPath('evidence', filePath));
+
+      // Agregar headers
+      request.headers.addAll({
+        'Authorization': 'Bearer $token'
+      });
+
+      // Enviar la petición
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      _isLoading = false;
+      notifyListeners();
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Evidencia subida correctamente'
+        };
+      }
+
+      return {
+        'success': false,
+        'message': 'Error al subir la evidencia'
+      };
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      return {
+        'success': false,
+        'message': 'Error: ${e.toString()}'
+      };
+    }
+  }
+
+  // Enviar evidencia como texto o URL (para aprendices)
   Future<bool> submitEvidence(String evaluationId, Map<String, dynamic> evidenceData) async {
     _isLoading = true;
     notifyListeners();
@@ -340,14 +396,12 @@ class EvaluationService extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
 
-      if (response.statusCode == 200) {
-        return true;
-      }
-      return false;
+      return response.statusCode == 200;
     } catch (e) {
       _isLoading = false;
       notifyListeners();
       return false;
     }
   }
+
 }

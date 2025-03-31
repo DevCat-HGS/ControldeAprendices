@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../services/profile_service.dart';
 import 'attendance_page.dart';
 import 'evaluation_page.dart';
 import 'course_page.dart';
@@ -178,6 +179,13 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildInstructorView() {
+    final profileService = Provider.of<ProfileService>(context);
+    final userProfile = profileService.userProfile;
+
+    if (profileService.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -188,16 +196,14 @@ class _HomePageState extends State<HomePage> {
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          // Lista de cursos (simulada)
-          _buildCoursesList(),
+          _buildCoursesList(userProfile['courses'] ?? []),
           const SizedBox(height: 24),
           const Text(
             'Asistencias Recientes',
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          // Lista de asistencias recientes (simulada)
-          _buildRecentAttendanceList(),
+          _buildRecentAttendanceList(userProfile['attendance'] ?? []),
           const SizedBox(height: 24),
           const Text(
             'Evaluaciones Pendientes',
@@ -212,6 +218,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildApprenticeView() {
+    final profileService = Provider.of<ProfileService>(context);
+    final userProfile = profileService.userProfile;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -222,29 +231,21 @@ class _HomePageState extends State<HomePage> {
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          // Lista de materias inscritas (simulada)
-          _buildEnrolledCoursesList(),
+          _buildEnrolledCoursesList(userProfile['courses'] ?? []),
           const SizedBox(height: 24),
           const Text(
             'Calificaciones Recientes',
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          // Lista de calificaciones recientes (simulada)
-          _buildRecentGradesList(),
+          _buildRecentGradesList(userProfile['evaluations'] ?? []),
         ],
       ),
     );
   }
 
   // Widgets para la vista del instructor
-  Widget _buildCoursesList() {
-    // Datos simulados de cursos
-    final courses = [
-      {'name': 'Desarrollo de Software', 'code': 'DS-2023', 'students': 25},
-      {'name': 'Bases de Datos', 'code': 'BD-2023', 'students': 20},
-      {'name': 'Programación Web', 'code': 'PW-2023', 'students': 18},
-    ];
+  Widget _buildCoursesList(List<dynamic> courses) {
 
     return ListView.builder(
       shrinkWrap: true,
@@ -271,13 +272,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildRecentAttendanceList() {
-    // Datos simulados de asistencias recientes
-    final attendances = [
-      {'course': 'Desarrollo de Software', 'date': '15/05/2023', 'attendance': '90%'},
-      {'course': 'Bases de Datos', 'date': '14/05/2023', 'attendance': '85%'},
-      {'course': 'Programación Web', 'date': '13/05/2023', 'attendance': '95%'},
-    ];
+  Widget _buildRecentAttendanceList(List<dynamic> attendances) {
 
     return ListView.builder(
       shrinkWrap: true,
@@ -337,13 +332,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   // Widgets para la vista del aprendiz
-  Widget _buildEnrolledCoursesList() {
-    // Datos simulados de materias inscritas
-    final courses = [
-      {'name': 'Desarrollo de Software', 'instructor': 'Juan Pérez', 'schedule': 'Lun-Mie 8:00-10:00'},
-      {'name': 'Bases de Datos', 'instructor': 'María López', 'schedule': 'Mar-Jue 10:00-12:00'},
-      {'name': 'Programación Web', 'instructor': 'Carlos Rodríguez', 'schedule': 'Vie 14:00-18:00'},
-    ];
+  Widget _buildEnrolledCoursesList(List<dynamic> courses) {
 
     return ListView.builder(
       shrinkWrap: true,
@@ -370,13 +359,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildRecentGradesList() {
-    // Datos simulados de calificaciones recientes
-    final grades = [
-      {'title': 'Proyecto Final', 'course': 'Desarrollo de Software', 'grade': '95/100', 'date': '10/05/2023'},
-      {'title': 'Examen Parcial', 'course': 'Bases de Datos', 'grade': '85/100', 'date': '05/05/2023'},
-      {'title': 'Taller Práctico', 'course': 'Programación Web', 'grade': '90/100', 'date': '01/05/2023'},
-    ];
+  Widget _buildRecentGradesList(List<dynamic> grades) {
 
     return ListView.builder(
       shrinkWrap: true,

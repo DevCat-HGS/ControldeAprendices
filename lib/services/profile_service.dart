@@ -16,6 +16,19 @@ class ProfileService extends ChangeNotifier {
     return prefs.getString('token');
   }
 
+  void _updateLocalProfile(Map<String, dynamic> userData) {
+    _userProfile = {
+      'name': userData['name'] ?? 'Sin nombre',
+      'lastName': userData['lastName'] ?? 'Sin apellido',
+      'email': userData['email'] ?? 'Sin correo',
+      'documentNumber': userData['documentNumber'] ?? 'Sin documento',
+      'role': userData['role'] ?? 'Sin rol',
+      'courses': userData['courses'] ?? [],
+      'evaluations': userData['evaluations'] ?? [],
+      'attendance': userData['attendance'] ?? []
+    };
+  }
+
   Future<Map<String, dynamic>> getUserProfile(String userId) async {
     _isLoading = true;
     notifyListeners();
@@ -32,7 +45,8 @@ class ProfileService extends ChangeNotifier {
         };
       }
 
-      final response = await http.get(
+      // Obtener datos del perfil
+      final profileResponse = await http.get(
         Uri.parse('$_baseUrl/auth/profile'),
         headers: {
           'Content-Type': 'application/json',
@@ -40,31 +54,51 @@ class ProfileService extends ChangeNotifier {
         },
       );
 
-      final Map<String, dynamic> decodedResp = json.decode(response.body);
-      if (response.statusCode == 200 && decodedResp['success'] && decodedResp['data'] != null) {
-        final userData = decodedResp['data'];
-        _userProfile = {
-          'name': userData['name'] ?? 'Sin nombre',
-          'lastName': userData['lastName'] ?? 'Sin apellido',
-          'email': userData['email'] ?? 'Sin correo',
-          'documentNumber': userData['documentNumber'] ?? 'Sin documento',
-          'role': userData['role'] ?? 'Sin rol'
-        };
+      // Obtener datos adicionales (cursos, evaluaciones, asistencias)
+      final coursesResponse = await http.get(
+        Uri.parse('$_baseUrl/courses/user/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token'
+        },
+      );
+
+      final evaluationsResponse = await http.get(
+        Uri.parse('$_baseUrl/evaluations/user/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token'
+        },
+      );
+
+      final attendanceResponse = await http.get(
+        Uri.parse('$_baseUrl/attendance/user/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token'
+        },
+      );
+
+      final Map<String, dynamic> profileData = json.decode(profileResponse.body);
+      final Map<String, dynamic> coursesData = json.decode(coursesResponse.body);
+      final Map<String, dynamic> evaluationsData = json.decode(evaluationsResponse.body);
+      final Map<String, dynamic> attendanceData = json.decode(attendanceResponse.body);
+
+      if (profileResponse.statusCode == 200 && profileData['success'] && profileData['data'] != null) {
+        final userData = profileData['data'];
+        userData['courses'] = coursesData['data'] ?? [];
+        userData['evaluations'] = evaluationsData['data'] ?? [];
+        userData['attendance'] = attendanceData['data'] ?? [];
+        _updateLocalProfile(userData);
       } else {
-        _userProfile = {
-          'name': 'Sin nombre',
-          'lastName': 'Sin apellido',
-          'email': 'Sin correo',
-          'documentNumber': 'Sin documento',
-          'role': 'Sin rol'
-        };
+        _updateLocalProfile({});
       }
 
       _isLoading = false;
       notifyListeners();
       return {
-        'success': response.statusCode == 200,
-        'message': decodedResp['message'] ?? 'Error al obtener el perfil',
+        'success': profileResponse.statusCode == 200,
+        'message': profileData['message'] ?? 'Error al obtener el perfil',
         'profile': _userProfile,
       };
     } catch (e) {

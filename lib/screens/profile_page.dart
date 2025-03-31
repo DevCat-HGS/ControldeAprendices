@@ -299,6 +299,26 @@ class _ProfilePageState extends State<ProfilePage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
+                              'Estadísticas de Instructor',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 16),
+                            ListTile(
+                              leading: const Icon(Icons.class_),
+                              title: const Text('Cursos Activos'),
+                              subtitle: Text(userProfile['activeCourses']?.toString() ?? '0'),
+                            ),
+                            ListTile(
+                              leading: const Icon(Icons.people),
+                              title: const Text('Total de Estudiantes'),
+                              subtitle: Text(userProfile['totalStudents']?.toString() ?? '0'),
+                            ),
+                            ListTile(
+                              leading: const Icon(Icons.assessment),
+                              title: const Text('Evaluaciones Pendientes'),
+                              subtitle: Text(userProfile['pendingEvaluations']?.toString() ?? '0'),
+                            ),
+                            const Text(
                               'Gestión de Cursos',
                               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                             ),

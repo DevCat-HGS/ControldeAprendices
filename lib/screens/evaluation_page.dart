@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:file_picker/file_picker.dart';
 import '../services/auth_service.dart';
 import '../services/course_service.dart';
 import '../services/evaluation_service.dart';
@@ -13,11 +14,78 @@ class EvaluationPage extends StatefulWidget {
 }
 
 class _EvaluationPageState extends State<EvaluationPage> {
+  final _formKey = GlobalKey<FormState>();
   bool _isLoading = true;
   List<dynamic> _courses = [];
   List<dynamic> _evaluations = [];
   dynamic _selectedCourse;
   String? _userRole;
+  String? _selectedFile;
+  bool _isUploading = false;
+  String? _error;
+
+  Future<void> _pickFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'],
+      );
+
+      if (result != null) {
+        setState(() {
+          _selectedFile = result.files.single.path;
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error al seleccionar el archivo')),
+      );
+    }
+  }
+
+  Future<void> _uploadEvidence(String evaluationId) async {
+    if (_selectedFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor seleccione un archivo')),
+      );
+      return;
+    }
+
+    setState(() => _isUploading = true);
+
+    try {
+      final evaluationService = Provider.of<EvaluationService>(context, listen: false);
+      final result = await evaluationService.uploadEvidence(
+        evaluationId,
+        _selectedFile!,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message']),
+          backgroundColor: result['success'] ? Colors.green : Colors.red,
+        ),
+      );
+
+      if (result['success']) {
+        setState(() {
+          _selectedFile = null;
+        });
+        if (_selectedCourse != null) {
+          _loadEvaluations(_selectedCourse['_id']);
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error al subir la evidencia')),
+      );
+    } finally {
+      setState(() => _isUploading = false);
+    }
+  }
 
   // Controladores para el formulario de creación de evaluación
   final _nameController = TextEditingController();
@@ -52,8 +120,11 @@ class _EvaluationPageState extends State<EvaluationPage> {
   }
 
   Future<void> _loadCourses() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
+      _error = null;
     });
 
     try {
@@ -78,14 +149,18 @@ class _EvaluationPageState extends State<EvaluationPage> {
     }
   }
 
-  Future<void> _loadEvaluations(String courseId) async {
+  Future<void> _loadEvaluations([String? courseId]) async {
+    if (courseId == null && _selectedCourse == null) return;
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
+      _error = null;
     });
 
     try {
       final evaluationService = Provider.of<EvaluationService>(context, listen: false);
-      final evaluations = await evaluationService.getEvaluationsByCourse(courseId);
+      final evaluations = await evaluationService.getEvaluationsByCourse(courseId ?? _selectedCourse!['_id']);
       
       if (evaluations != null) {
         setState(() {
@@ -114,26 +189,20 @@ class _EvaluationPageState extends State<EvaluationPage> {
     }
 
     // Validar el formulario
-    if (_nameController.text.isEmpty ||
-        _descriptionController.text.isEmpty ||
-        _maxScoreController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor complete todos los campos')),
-      );
+    if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    if (!mounted) return;
 
     try {
+      setState(() => _isLoading = true);
       final evaluationService = Provider.of<EvaluationService>(context, listen: false);
       
       final evaluationData = {
-        'name': _nameController.text,
+        'name': _nameController.text.trim(),
         'course': _selectedCourse['_id'],
-        'description': _descriptionController.text,
+        'description': _descriptionController.text.trim(),
         'maxScore': int.parse(_maxScoreController.text),
         'dueDate': _dueDate.toIso8601String(),
       };
@@ -178,15 +247,14 @@ class _EvaluationPageState extends State<EvaluationPage> {
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    if (!mounted) return;
 
     try {
+      setState(() => _isLoading = true);
       final evaluationService = Provider.of<EvaluationService>(context, listen: false);
       
       final evidenceData = {
-        'evidence': _evidenceController.text,
+        'evidence': _evidenceController.text.trim(),
       };
       
       final success = await evaluationService.submitEvidence(evaluationId, evidenceData);
@@ -261,71 +329,82 @@ class _EvaluationPageState extends State<EvaluationPage> {
                     const SizedBox(height: 16),
                     
                     // Formulario de creación de evaluación
-                    TextFormField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Nombre de la Evaluación',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
+                    Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          TextFormField(
+                            controller: _nameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Nombre de la Evaluación',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Por favor ingrese el nombre de la evaluación';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _descriptionController,
+                            decoration: const InputDecoration(
+                              labelText: 'Descripción',
+                              border: OutlineInputBorder(),
+                            ),
+                            maxLines: 3,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _maxScoreController,
+                            decoration: const InputDecoration(
+                              labelText: 'Puntaje Máximo',
+                              border: OutlineInputBorder(),
+                            ),
+                            keyboardType: TextInputType.number,
+                          ),
+                          const SizedBox(height: 12),
                     
-                    TextFormField(
-                      controller: _descriptionController,
-                      decoration: const InputDecoration(
-                        labelText: 'Descripción',
-                        border: OutlineInputBorder(),
-                      ),
-                      maxLines: 3,
-                    ),
-                    const SizedBox(height: 12),
-                    
-                    TextFormField(
-                      controller: _maxScoreController,
-                      decoration: const InputDecoration(
-                        labelText: 'Puntaje Máximo',
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 12),
-                    
-                    // Selector de fecha de entrega
-                    InkWell(
-                      onTap: () async {
-                        final DateTime? picked = await showDatePicker(
-                          context: context,
-                          initialDate: _dueDate,
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime(2025),
-                        );
-                        if (picked != null && picked != _dueDate) {
-                          setState(() {
-                            _dueDate = picked;
-                          });
-                        }
-                      },
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: 'Fecha de Entrega',
-                          border: OutlineInputBorder(),
-                        ),
-                        child: Text(
-                          DateFormat('dd/MM/yyyy').format(_dueDate),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Botón para crear evaluación
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _createEvaluation,
-                        child: const Text('Crear Evaluación'),
-                      ),
-                    ),
-                    const Divider(height: 32),
+                           // Selector de fecha de entrega
+                           InkWell(
+                             onTap: () async {
+                               final DateTime? picked = await showDatePicker(
+                                 context: context,
+                                 initialDate: _dueDate,
+                                 firstDate: DateTime.now(),
+                                 lastDate: DateTime(2025),
+                               );
+                               if (picked != null && picked != _dueDate) {
+                                 setState(() {
+                                   _dueDate = picked;
+                                 });
+                               }
+                             },
+                             child: InputDecorator(
+                               decoration: const InputDecoration(
+                                 labelText: 'Fecha de Entrega',
+                                 border: OutlineInputBorder(),
+                               ),
+                               child: Text(
+                                 DateFormat('dd/MM/yyyy').format(_dueDate),
+                               ),
+                             ),
+                           ),
+                           const SizedBox(height: 16),
+                           
+                           // Botón para crear evaluación
+                           SizedBox(
+                             width: double.infinity,
+                             child: ElevatedButton(
+                               onPressed: _createEvaluation,
+                               child: const Text('Crear Evaluación'),
+                             ),
+                           ),
+                         ],
+                       ),
+                     ),
+                     const Divider(height: 32),
                   ],
                   
                   // Lista de evaluaciones
@@ -423,21 +502,48 @@ class _EvaluationPageState extends State<EvaluationPage> {
                                       style: TextStyle(fontWeight: FontWeight.bold),
                                     ),
                                     const SizedBox(height: 8),
-                                    TextFormField(
-                                      controller: _evidenceController,
-                                      decoration: const InputDecoration(
-                                        labelText: 'URL o descripción de la evidencia',
-                                        border: OutlineInputBorder(),
-                                        hintText: 'Ingrese un enlace o descripción de su trabajo',
-                                      ),
-                                      maxLines: 2,
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextFormField(
+                                            controller: _evidenceController,
+                                            decoration: const InputDecoration(
+                                              labelText: 'URL o descripción de la evidencia',
+                                              border: OutlineInputBorder(),
+                                              hintText: 'Ingrese un enlace o descripción de su trabajo',
+                                            ),
+                                            maxLines: 2,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        IconButton(
+                                          onPressed: _pickFile,
+                                          icon: const Icon(Icons.attach_file),
+                                          tooltip: 'Adjuntar archivo',
+                                        ),
+                                      ],
                                     ),
+                                    if (_selectedFile != null) ...[  
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Archivo seleccionado: ${_selectedFile!.split('/').last}',
+                                        style: const TextStyle(fontStyle: FontStyle.italic),
+                                      ),
+                                    ],
                                     const SizedBox(height: 8),
                                     SizedBox(
                                       width: double.infinity,
                                       child: ElevatedButton(
-                                        onPressed: () => _submitEvidence(evaluation['_id']),
-                                        child: const Text('Enviar Evidencia'),
+                                        onPressed: _isUploading
+                                            ? null
+                                            : () => _selectedFile != null
+                                                ? _uploadEvidence(evaluation['_id'])
+                                                : _submitEvidence(evaluation['_id']),
+                                        child: Text(_isUploading
+                                            ? 'Subiendo...'
+                                            : _selectedFile != null
+                                                ? 'Subir Archivo'
+                                                : 'Enviar Evidencia'),
                                       ),
                                     ),
                                   ],
