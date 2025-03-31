@@ -250,6 +250,133 @@ exports.addStudents = async (req, res) => {
   }
 };
 
+// @desc    Inscribirse a un curso (para aprendices)
+// @route   POST /api/courses/:id/enroll
+// @access  Private (Solo aprendices)
+exports.enrollCourse = async (req, res) => {
+  try {
+    const course = await Course.findById(req.params.id);
+
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        error: 'Curso no encontrado'
+      });
+    }
+
+    // Verificar que el usuario sea un aprendiz
+    if (req.user.role !== 'aprendiz') {
+      return res.status(403).json({
+        success: false,
+        error: 'Solo los aprendices pueden inscribirse a cursos'
+      });
+    }
+
+    // Verificar si el aprendiz ya está inscrito
+    if (course.students.includes(req.user.id)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Ya estás inscrito en este curso'
+      });
+    }
+
+    // Agregar el aprendiz al curso
+    course.students.push(req.user.id);
+    await course.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Te has inscrito exitosamente al curso',
+      data: course
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+// @desc    Cancelar inscripción a un curso (para aprendices)
+// @route   DELETE /api/courses/:id/enroll
+// @access  Private (Solo aprendices)
+exports.unenrollCourse = async (req, res) => {
+  try {
+    const course = await Course.findById(req.params.id);
+
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        error: 'Curso no encontrado'
+      });
+    }
+
+    // Verificar que el usuario sea un aprendiz
+    if (req.user.role !== 'aprendiz') {
+      return res.status(403).json({
+        success: false,
+        error: 'Solo los aprendices pueden cancelar su inscripción'
+      });
+    }
+
+    // Verificar si el aprendiz está inscrito
+    if (!course.students.includes(req.user.id)) {
+      return res.status(400).json({
+        success: false,
+        error: 'No estás inscrito en este curso'
+      });
+    }
+
+    // Eliminar al aprendiz del curso
+    course.students = course.students.filter(
+      student => student.toString() !== req.user.id
+    );
+    await course.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Has cancelado tu inscripción al curso exitosamente',
+      data: {}
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+// @desc    Obtener cursos disponibles para inscripción (para aprendices)
+// @route   GET /api/courses/available
+// @access  Private (Solo aprendices)
+exports.getAvailableCourses = async (req, res) => {
+  try {
+    // Verificar que el usuario sea un aprendiz
+    if (req.user.role !== 'aprendiz') {
+      return res.status(403).json({
+        success: false,
+        error: 'Solo los aprendices pueden ver cursos disponibles para inscripción'
+      });
+    }
+
+    // Buscar todos los cursos donde el aprendiz no esté inscrito
+    const courses = await Course.find({
+      students: { $ne: req.user.id }
+    }).populate('instructor', 'name lastName email');
+
+    res.status(200).json({
+      success: true,
+      count: courses.length,
+      data: courses
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
 // @desc    Eliminar estudiantes de un curso
 // @route   DELETE /api/courses/:id/students
 // @access  Private (Solo instructor del curso)

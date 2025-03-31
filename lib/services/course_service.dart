@@ -283,4 +283,118 @@ class CourseService extends ChangeNotifier {
       return false;
     }
   }
+  
+  // Obtener cursos disponibles para inscripción (solo para aprendices)
+  Future<List<dynamic>?> getAvailableCourses() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        _isLoading = false;
+        notifyListeners();
+        return null;
+      }
+
+      final response = await http.get(
+        Uri.parse('$_baseUrl/courses/available/list'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token'
+        },
+      );
+
+      _isLoading = false;
+      notifyListeners();
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['data'] != null) {
+          return data['data'];
+        }
+      }
+      return null;
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      return null;
+    }
+  }
+
+  // Inscribirse a un curso (solo para aprendices)
+  Future<Map<String, dynamic>> enrollCourse(String courseId) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        _isLoading = false;
+        notifyListeners();
+        return {'success': false, 'message': 'No se encontró el token de autenticación'};
+      }
+
+      final response = await http.post(
+        Uri.parse('$_baseUrl/courses/$courseId/enroll'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token'
+        },
+      );
+
+      _isLoading = false;
+      notifyListeners();
+
+      final data = json.decode(response.body);
+      
+      if (response.statusCode == 200) {
+        await getCourses(); // Actualizar la lista de cursos
+        return {'success': true, 'message': data['message'] ?? 'Te has inscrito exitosamente al curso'};
+      }
+      return {'success': false, 'message': data['error'] ?? 'Error al inscribirse al curso'};
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      return {'success': false, 'message': 'Error inesperado al inscribirse al curso'};
+    }
+  }
+
+  // Cancelar inscripción a un curso (solo para aprendices)
+  Future<Map<String, dynamic>> unenrollCourse(String courseId) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        _isLoading = false;
+        notifyListeners();
+        return {'success': false, 'message': 'No se encontró el token de autenticación'};
+      }
+
+      final response = await http.delete(
+        Uri.parse('$_baseUrl/courses/$courseId/enroll'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token'
+        },
+      );
+
+      _isLoading = false;
+      notifyListeners();
+
+      final data = json.decode(response.body);
+      
+      if (response.statusCode == 200) {
+        await getCourses(); // Actualizar la lista de cursos
+        return {'success': true, 'message': data['message'] ?? 'Has cancelado tu inscripción exitosamente'};
+      }
+      return {'success': false, 'message': data['error'] ?? 'Error al cancelar la inscripción'};
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      return {'success': false, 'message': 'Error inesperado al cancelar la inscripción'};
+    }
+  }
 }

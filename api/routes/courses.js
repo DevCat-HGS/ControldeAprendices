@@ -7,7 +7,10 @@ const {
   updateCourse, 
   deleteCourse, 
   addStudents, 
-  removeStudents 
+  removeStudents,
+  enrollCourse,
+  unenrollCourse,
+  getAvailableCourses
 } = require('../controllers/courseController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -16,6 +19,11 @@ const { protect, authorize } = require('../middleware/auth');
 // Rutas protegidas para todos los usuarios
 router.get('/', protect, getCourses);
 router.get('/:id', protect, getCourse);
+
+// Rutas para aprendices
+router.get('/available/list', protect, authorize('aprendiz'), getAvailableCourses);
+router.post('/:id/enroll', protect, authorize('aprendiz'), enrollCourse);
+router.delete('/:id/enroll', protect, authorize('aprendiz'), unenrollCourse);
 
 // Rutas protegidas solo para instructores
 router.post('/', protect, authorize('instructor'), createCourse);
