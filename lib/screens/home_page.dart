@@ -4,6 +4,8 @@ import '../services/auth_service.dart';
 import 'attendance_page.dart';
 import 'evaluation_page.dart';
 import 'course_page.dart';
+import 'profile_page.dart';
+import 'grades_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -138,6 +140,28 @@ class _HomePageState extends State<HomePage> {
               ),
             ],
             const Divider(),
+            ListTile(
+              leading: const Icon(Icons.person),
+              title: const Text('Mi Perfil'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ProfilePage()),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.grade),
+              title: const Text('Mis Notas'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const GradesPage()),
+                );
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.settings),
               title: const Text('Configuración'),

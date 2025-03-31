@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:untitled1/screens/login_page.dart';
 import 'package:untitled1/services/auth_service.dart';
 import 'package:untitled1/services/course_service.dart';
+import 'package:untitled1/services/profile_service.dart';
+import 'package:untitled1/services/grades_service.dart';
 
 void main() {
   runApp(const MyApp());
@@ -17,6 +19,8 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => CourseService()),
+        ChangeNotifierProvider(create: (_) => ProfileService()),
+        ChangeNotifierProvider(create: (_) => GradesService()),
       ],
       child: MaterialApp(
         title: 'SENA App',
